@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 background_file_name = "BCKGRND_294.65K_8M_6X_03-17-21_15.31_Emission back parallel input_0.015360_80 kHz_KBr_BEB_AVG120.0"
 data_file_name = "Propene_0.101Torr_294.65K_8M_6X_03-17-21_23.54_Emission back parallel input_0.000960_80 kHz_KBr_BEB_AVG122.0"
-file_directory_path = "spectra/data/"
+file_directory_path = "data/"
 
 background_path = file_directory_path + background_file_name
 data_path = file_directory_path + data_file_name

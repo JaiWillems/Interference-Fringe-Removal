@@ -1,1 +1,1 @@
-IFR/spectra/data/*.0 filter=lfs diff=lfs merge=lfs -text
+IFR/data/*.0 filter=lfs diff=lfs merge=lfs -text
