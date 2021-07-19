@@ -1,51 +1,32 @@
-"""Store OPUS file data.
+"""OPUS file handling.
 
-The dataobjects module contains the `DataOPUS` and `DataBlock` class's to
-organize and store OPUs file data.
+The dataobjects module contains the `DataOPUS` and `DataBlock` class's along
+with the `OPUSLoader` function to handle OPUS file data.
 """
 
 
 import opusFC
 
 
-class DataOPUS(object):
-    """Store OPUS file data.
-    
-    The `DataOPUS` class takes the path to an OPUS file and uploads the data
-    into `DataBlock` objects.
+class OPUSData(object):
+    """Host OPUS file data.
 
-    Parameters
-    ----------
-    path : str
-        Path of OPUS file.
-    
     Attributes
     ----------
-    data : dict
-        Dictionary containing `DataBlock` objects where the keys are the
-        `DataBlock.type` attributes.
+    data : Dict
+        Dictionary of `DataBlock` objects where the keys are the blocks `type`
+        attribute.
     """
 
-    def __init__(self, path: str) -> None:
+    def __init__(self) -> None:
         """Initialize attributes."""
 
         self.data = {}
 
-        data_blocks = opusFC.listContents(path)
-
-        for data_block in data_blocks:
-            block_object = DataBlock(opusFC.getOpusData(path, data_block))
-            self.data[block_object.type] = block_object
-
 
 class DataBlock(object):
-    """Locallize OPUS data blocks.
-    
-    Parameters
-    ----------
-    data : opusFC.SingleDataReturn
-        Data composing an OPUS data block.
-    
+    """Host data block information.
+
     Attributes
     ----------
     dim : str
@@ -66,14 +47,50 @@ class DataBlock(object):
         maximum y value.
     """
 
-    def __init__(self, data: opusFC.SingleDataReturn) -> None:
+    def __init__(self) -> None:
         """Initialize attributes."""
 
-        self.dim = data.dimension
-        self.type = data.dataType
-        self.deriv_type = data.derivative
-        self.params = data.parameters
-        self.x = data.x
-        self.y = data.y
-        self.minY = data.minY
-        self.maxY = data.maxY
+        self.dim = None
+        self.type = None
+        self.deriv_type = None
+        self.params = None
+        self.x = None
+        self.y = None
+        self.minY = None
+        self.maxY = None
+
+
+def OPUSLoader(path: str) -> OPUSData:
+    """Return an `OPUSData` object of the OPUS file data.
+
+    Parameters
+    ----------
+    path : str
+        String specifying the path to an OPUS file.
+    
+    Returns
+    -------
+    OPUSData
+        Return the file data as an `OPUSData` object.
+    """
+
+    opusData = OPUSData()
+    data_blocks = opusFC.listContents(path)
+
+    for data_block in data_blocks:
+        data = opusFC.getOpusData(path, data_block)
+
+        block_object = DataBlock()
+        block_object.dim = data.dimension
+        block_object.type = data.dataType
+        block_object.deriv_type = data.derivative
+        block_object.params = data.parameters
+        block_object.x = data.x
+        block_object.y = data.y
+        block_object.minY = data.minY
+        block_object.maxY = data.maxY
+
+        opusData.data[block_object.type] = block_object
+    
+    return opusData
+

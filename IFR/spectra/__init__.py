@@ -1,2 +1,2 @@
-from .dataobjects import DataOPUS
+from .dataobjects import OPUSLoader, OPUSData, DataBlock
 from .operations import DataOperations
