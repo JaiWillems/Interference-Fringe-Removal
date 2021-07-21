@@ -1,12 +1,34 @@
+"""`DataBlock` operations.
+
+The operations module contains the `DataOperations` class to manipulate
+interferogram and spectrograph data held within `DataBlock` objects.
+"""
 
 
-from spectra.dataobjects import DataBlock
-import numpy as np
-import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
+from spectra.dataobjects import DataBlock
+from typing import Tuple
+import matplotlib.pyplot as plt
+import numpy as np
 
 
-class DataOperations:
+class DataOperations(object):
+    """`DataBlock` Operations.
+
+    The `DataOperations` class allows for the manipulation of interferogram and
+    spectrograph data held within `DataBlock` objects.
+
+    Methods
+    -------
+    mertz(dataBlock)
+        Apply Mertz correction to interferometer data.
+    FFT(dataBlock)
+        Return the Fast Fourier Transform of the `dataBlock`.
+    IFFT(dataBlock)
+        Return the Inverse Fast Fourier Transform of the `dataBlock`.
+    fringe_removal(min, max, dataBlock)
+        Return `dataBlock` with fringe removed.
+    """
 
     def __init__(self):
         
@@ -173,19 +195,18 @@ class DataOperations:
 
         return dataBlock
 
-
-    def FFT(self, dataBlock):
+    def FFT(self, dataBlock: DataBlock) -> DataBlock:
         """Return the Fast Fourier Transform of the `dataBlock`.
 
         Parameters
         ----------
         dataBlock : DataBlock
-            `DataBlock` to be FFT'd.
+            `DataBlock` to be Fourier transformed.
         
         Returns
         -------
         DataBlock
-            Return the FFT'd `dataBlock`.
+            Return the Fourier transdformed `dataBlock`.
         """
 
         LWN = dataBlock.params["LWN"]
@@ -195,42 +216,60 @@ class DataOperations:
         y = dataBlock.y[:n//2]
         n = y.size
 
-        y = np.fft.fft(y)
-        x = np.fft.fftfreq(n, SSP / (2 * LWN))
+        y = np.fft.fft(y)[:n//2]
+        x = np.fft.fftfreq(n, 1.12843 * SSP / (LWN))[:n//2]
 
+        dataBlock_new = DataBlock()
+
+        dataBlock_new.dim = dataBlock.dim
         if dataBlock.type == "SIFG":
-            dataBlock.type == "SSC"
-        dataBlock.x = x
-        dataBlock.y = y
-        dataBlock.minY = np.min(y)
-        dataBlock.maxY = np.max(y)
+            dataBlock_new.type = "SSC"
+        dataBlock_new.deriv_type = dataBlock.deriv_type
+        dataBlock_new.params = dataBlock.params
+        dataBlock_new.x = x
+        dataBlock_new.y = y
+        dataBlock_new.minY = np.min(y)
+        dataBlock_new.maxY = np.max(y)
 
-        return dataBlock
+        return dataBlock_new
 
-    def IFFT(self, dataBlock):
+    def IFFT(self, dataBlock: DataBlock) -> DataBlock:
+        """Return the Inverse Fast Fourier Transform of the `dataBlock`.
+
+        Parameters
+        ----------
+        dataBlock : DataBlock
+            `DataBlock` to be inverse Fourier transformed.
+        
+        Returns
+        -------
+        DataBlock
+            Return the Fourier transformed `dataBlock`.
         """
-        """
-
-        LWN = dataBlock.params["LWN"]
-        SSP = dataBlock.params["SSP"]
 
         x = dataBlock.x
         y = dataBlock.y
         n = y.size
 
+        y = np.concatenate((y, -y[1:]))
         y = np.fft.ifft(y)
-        x = np.linspace(0, n, n)
+        x = np.linspace(-n, n, 2 * n - 1)
 
-        if dataBlock.type == "SSC":
-            dataBlock.type = "SIFG"
-        dataBlock.x = x
-        dataBlock.y = y
-        dataBlock.minY = np.min(y)
-        dataBlock.maxY = np.max(y)
+        dataBlock_new = DataBlock()
 
-        return dataBlock
+        dataBlock_new.dim = dataBlock.dim
+        if dataBlock.type == "SIFG":
+            dataBlock_new.type = "SSC"
+        dataBlock_new.deriv_type = dataBlock.deriv_type
+        dataBlock_new.params = dataBlock.params
+        dataBlock_new.x = x
+        dataBlock_new.y = y
+        dataBlock_new.minY = np.min(y)
+        dataBlock_new.maxY = np.max(y)
+
+        return dataBlock_new
     
-    def fringe_removal(self, start: int, end: int, dataBlock: DataBlock) -> DataBlock:
+    def fringe_removal(self, min: int, max: int, dataBlock: DataBlock) -> DataBlock:
         """Return `dataBlock` with fringe removed.
 
         This method removes the fringe specified by `start` and `end`,
@@ -239,9 +278,9 @@ class DataOperations:
 
         Parameters
         ----------
-        start : int
+        min : int
             The start x-value of the fringe to remove.
-        end : int
+        max : int
             The end x-value of the fringe to remove.
         dataBlock : DataBlock
             A SIFG `DataBlock` to edit.
@@ -255,10 +294,85 @@ class DataOperations:
         x = dataBlock.x
         y = dataBlock.y
 
-        dataBlock.x = np.concatenate((x[:start], x[end + 1:]))
-        dataBlock.y = np.concatenate((y[:start], y[end + 1:]))
+        ind = np.where((x < min) | (x > max))[0]
 
-        return dataBlock
+        x_new = x[ind]
+        y_new = y[ind]
 
+        ind = np.where((x_new < -max) | (x_new > -min))[0]
 
+        x_new = x_new[ind]
+        y_new = y_new[ind]
 
+        dataBlock_new = DataBlock()
+
+        dataBlock_new.dim = dataBlock.dim
+        dataBlock_new.type = dataBlock.type
+        dataBlock_new.deriv_type = dataBlock.deriv_type
+        dataBlock_new.params = dataBlock.params
+        dataBlock_new.x = x_new
+        dataBlock_new.y = y_new
+        dataBlock_new.minY = np.min(y_new)
+        dataBlock_new.maxY = np.max(y_new)
+
+        return dataBlock_new
+    
+    def alignment(self, dataBlock_one: DataBlock, dataBlock_two: DataBlock) -> Tuple[DataBlock, DataBlock]:
+        """Returned aligned `DataBlock` objects.
+
+        This method interpolates the `DataBlock` with the shortest `x` and `y`
+        attributes such that the `x` values align between the two `DataBlock`
+        objects. The `x` bounds of the two objects must be equal.
+
+        Parameters
+        ----------
+        dataBlock_one, dataBlock_two : DataBlock
+            `DataBlock` objects with equal `x` bounds to align.
+        
+        Returns
+        -------
+        DataBlock
+            Return aligned `DataBlock` objects.
+        """
+
+        x_one = dataBlock_one.x
+        y_one = dataBlock_one.y
+        n_one = y_one.size
+
+        x_two = dataBlock_two.x
+        y_two = dataBlock_two.y
+        n_two = y_two.size
+
+        if n_one > n_two:
+            func = interp1d(x_two, y_two, kind="cubic")
+            x_two = x_one
+            y_two = func(x_two)
+        elif n_one < n_two:
+            func = interp1d(x_one, y_one, kind="cubic")
+            x_one = x_two
+            y_two = func(x_two)
+
+        dataBlock_one_new = DataBlock()
+
+        dataBlock_one_new.dim = dataBlock_one.dim
+        dataBlock_one_new.type = dataBlock_one.type
+        dataBlock_one_new.deriv_type = dataBlock_one.deriv_type
+        dataBlock_one_new.params = dataBlock_one.params
+        dataBlock_one_new.x = x_one
+        dataBlock_one_new.y = y_one
+        dataBlock_one_new.minY = np.min(y_one)
+        dataBlock_one_new.maxY = np.max(y_one)
+
+        dataBlock_two_new = DataBlock()
+
+        dataBlock_two_new.dim = dataBlock_two.dim
+        dataBlock_two_new.type = dataBlock_two.type
+        dataBlock_two_new.deriv_type = dataBlock_two.deriv_type
+        dataBlock_two_new.params = dataBlock_two.params
+        dataBlock_two_new.x = x_two
+        dataBlock_two_new.y = y_two
+        dataBlock_two_new.minY = np.min(y_two)
+        dataBlock_two_new.maxY = np.max(y_two)
+
+        return dataBlock_one_new, dataBlock_two_new
+        
