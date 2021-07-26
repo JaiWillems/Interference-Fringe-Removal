@@ -58,6 +58,28 @@ class DataBlock(object):
         self.y = None
         self.minY = None
         self.maxY = None
+    
+    def copy(self):
+        """Return a `DataBlock` copy.
+
+        Returns
+        -------
+        DataBlock
+            A copy of the host `DataBlock`.
+        """
+
+        dataBlock_new = DataBlock()
+
+        dataBlock_new.dim = self.dim
+        dataBlock_new.type = self.type
+        dataBlock_new.deriv_type = self.deriv_type
+        dataBlock_new.params = self.params
+        dataBlock_new.x = self.x
+        dataBlock_new.y = self.y
+        dataBlock_new.minY = self.minY
+        dataBlock_new.maxY = self.maxY
+
+        return dataBlock_new
 
 
 def OPUSLoader(path: str) -> OPUSData:

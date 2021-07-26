@@ -28,6 +28,8 @@ class DataOperations(object):
         Return the Inverse Fast Fourier Transform of the `dataBlock`.
     fringe_removal(min, max, dataBlock)
         Return `dataBlock` with fringe removed.
+    alignment(dataBlock_one, dataBlock_two)
+        Returned aligned `DataBlock` objects.
     """
 
     def __init__(self):
@@ -317,17 +319,74 @@ class DataOperations(object):
 
         return dataBlock_new
     
+    def fringe_spectrograph(self, dataBlock: DataBlock, min: int, max: int) -> DataBlock:
+        """Return the fringe spectrograph.
+
+        This method takes a single, mono-directional interferogram with the
+        point of zero pathlengths difference located at `x=0` and a fringe
+        whose position is defined by `min` and `max` to calculate the fringe's
+        contribution to the spectrum.
+
+        Parameters
+        ----------
+        dataBlock : DataBlock
+            Single, mono-directional interferogram.
+        min : int
+            The lower bounding x-value of the selected fringe.
+        max : int
+            The upper bounding x-value of the selected fringe.
+        
+        Returns
+        -------
+        DataBlock
+            Returns the fringe spectrograph component as a `DataBlock` object.
+        """
+
+        LWN, SSP = dataBlock.params["LWN"], dataBlock.params["SSP"]
+        x, y = dataBlock.x, dataBlock.y
+
+        x_one, y_one = x[:max], y[:max]
+        n_one = y_one.size
+        x_two, y_two = x_one[:min], y_one[:min]
+        n_two = y_two.size
+
+        fill_size = n_one - n_two
+        y_two = np.append(y_two, np.zeros((fill_size,)))
+        x_two = np.indices((n_one,))[0]
+        n_two = y_two.size
+
+        y_one = np.fft.fft(y_one)[:n_one//2]
+        x_one = np.fft.fftfreq(n_one, 1.12843 * SSP / LWN)[:n_one//2]
+        y_two = np.fft.fft(y_two)[:n_two//2]
+        x_two = np.fft.fftfreq(n_two, 1.12843 * SSP / LWN)[:n_two//2]
+
+        y_final = y_two - y_one
+
+        dataBlock_new = DataBlock()
+
+        dataBlock_new.dim = dataBlock.dim
+        dataBlock_new.type = "FIG"
+        dataBlock_new.deriv_type = dataBlock.deriv_type
+        dataBlock_new.params = dataBlock.params
+        dataBlock_new.x = x_two
+        dataBlock_new.y = y_final
+        dataBlock_new.minY = np.min(y_final)
+        dataBlock_new.maxY = np.max(y_final)
+
+        return dataBlock_new
+
     def alignment(self, dataBlock_one: DataBlock, dataBlock_two: DataBlock) -> Tuple[DataBlock, DataBlock]:
         """Returned aligned `DataBlock` objects.
 
         This method interpolates the `DataBlock` with the shortest `x` and `y`
         attributes such that the `x` values align between the two `DataBlock`
-        objects. The `x` bounds of the two objects must be equal.
+        objects.
 
         Parameters
         ----------
         dataBlock_one, dataBlock_two : DataBlock
-            `DataBlock` objects with equal `x` bounds to align.
+            `DataBlock` objects to align where `dataBlock_one`'s `x` and `y`
+            attributes are shorter than those of `dataBlock_two`.
         
         Returns
         -------
@@ -335,22 +394,19 @@ class DataOperations(object):
             Return aligned `DataBlock` objects.
         """
 
-        x_one = dataBlock_one.x
         y_one = dataBlock_one.y
         n_one = y_one.size
 
         x_two = dataBlock_two.x
-        y_two = dataBlock_two.y
-        n_two = y_two.size
+        n_two = x_two.size
 
-        if n_one > n_two:
-            func = interp1d(x_two, y_two, kind="cubic")
-            x_two = x_one
-            y_two = func(x_two)
-        elif n_one < n_two:
-            func = interp1d(x_one, y_one, kind="cubic")
-            x_one = x_two
-            y_two = func(x_two)
+        x_one = x_two
+
+        x_one_dx = np.linspace(0, n_one, n_one)
+        x_one_idx = np.linspace(0, n_one, n_two)
+
+        interp = interp1d(x_one_dx, y_one)
+        y_one = interp(x_one_idx)
 
         dataBlock_one_new = DataBlock()
 
@@ -363,16 +419,4 @@ class DataOperations(object):
         dataBlock_one_new.minY = np.min(y_one)
         dataBlock_one_new.maxY = np.max(y_one)
 
-        dataBlock_two_new = DataBlock()
-
-        dataBlock_two_new.dim = dataBlock_two.dim
-        dataBlock_two_new.type = dataBlock_two.type
-        dataBlock_two_new.deriv_type = dataBlock_two.deriv_type
-        dataBlock_two_new.params = dataBlock_two.params
-        dataBlock_two_new.x = x_two
-        dataBlock_two_new.y = y_two
-        dataBlock_two_new.minY = np.min(y_two)
-        dataBlock_two_new.maxY = np.max(y_two)
-
-        return dataBlock_one_new, dataBlock_two_new
-        
+        return dataBlock_one_new, dataBlock_two
