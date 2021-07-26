@@ -1,21 +1,21 @@
 
 
-from spectra.operations import DataOperations
-from spectra.dataobjects import OPUSLoader
 from functools import partial
-from typing import Literal, Tuple
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-from PyQt5.QtWidgets import (
-    QApplication, QButtonGroup, QCheckBox, QGridLayout, QLabel, QLineEdit,
-    QMainWindow, QPushButton, QRadioButton, QScrollArea, QVBoxLayout, QWidget,
-    QFileDialog
-)
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (
+    QApplication, QButtonGroup, QCheckBox, QDesktopWidget, QFileDialog, QGridLayout, QLabel,
+    QLineEdit, QMainWindow, QPushButton, QRadioButton, QScrollArea,
+    QVBoxLayout, QWidget
+)
+from spectra.dataobjects import OPUSLoader
+from spectra.operations import DataOperations
+from typing import Literal, Tuple
 import matplotlib.pyplot as plt
-import sys
 import numpy as np
 import os
+import sys
 
 
 class UI(QMainWindow):
@@ -28,6 +28,8 @@ class UI(QMainWindow):
         self.fringe_paths = {}
 
         self.setWindowTitle("Interference-Fringe-Removal")
+        self.setFixedWidth(1500)
+        self.setFixedHeight(750)
         
         self.layout = QGridLayout()
         self.layout.addWidget(self._SIFG_display(), 1, 1, 1, 1)
@@ -37,6 +39,11 @@ class UI(QMainWindow):
         self.centralWidget = QWidget(self)
         self.setCentralWidget(self.centralWidget)
         self.centralWidget.setLayout(self.layout)
+
+        qr = self.frameGeometry()
+        cp = QDesktopWidget().availableGeometry().center()
+        qr.moveCenter(cp)
+        self.move(qr.topLeft())
 
         self.show()
 
@@ -62,6 +69,7 @@ class UI(QMainWindow):
 
         self.SIFG_plot = self.SIFG_figure.add_subplot(111)
         self.SIFG_plot.set_title("Interferogram")
+        self.SIFG_plot.grid()
         self.SIFG_canvas.draw()
 
         return self.SIFG_window
@@ -88,6 +96,7 @@ class UI(QMainWindow):
 
         self.SSC_plot = self.SSC_figure.add_subplot(111)
         self.SSC_plot.set_title("Spectrograph")
+        self.SSC_plot.grid()
         self.SSC_canvas.draw()
 
         return self.SSC_window
@@ -100,10 +109,10 @@ class UI(QMainWindow):
         QWidget
             Widget containing the main data handling controls.
         """
-
         # Widget initialization.
-        self.background_upload = QPushButton("Upload Background File")
-        self.sample_upload = QPushButton("Upload Sample File")
+        self.background_upload = QPushButton("Background File Upload")
+        self.sample_upload = QPushButton("Sample File upload")
+        self.save_data = QPushButton("Save Filtered Data")
         self.fringe_start = QLineEdit()
         self.fringe_end = QLineEdit()
         self.select_fringe = QPushButton("Select")
@@ -115,6 +124,7 @@ class UI(QMainWindow):
         # Widgit styling.
         self.background_upload.setStyleSheet("background-color: lightgrey")
         self.sample_upload.setStyleSheet("background-color: lightgrey")
+        self.save_data.setStyleSheet("background-color: lightgrey")
         self.select_fringe.setStyleSheet("background-color: lightgrey")
         self.update_plot.setStyleSheet("background-color: lightgrey")
 
@@ -130,6 +140,7 @@ class UI(QMainWindow):
         layout.addWidget(QLabel("<b>Data Uploading</b>"), 1, 1, 1, 1)
         layout.addWidget(self.background_upload, 2, 1, 1, 1)
         layout.addWidget(self.sample_upload, 3, 1, 1, 1)
+        layout.addWidget(self.save_data, 4, 1, 1, 1)
         layout.addWidget(QLabel("<b>Fringe Localization</b>"), 1, 2, 1, 2)
         layout.addWidget(QLabel("Start:"), 2, 2, 1, 1)
         layout.addWidget(self.fringe_start, 2, 3, 1, 1)
@@ -211,20 +222,16 @@ class Controller(object):
         for file in files:
             file_name = os.getcwd() + "/IFR/cache/SIFG_plot_data/" + file
             data = np.load(file_name)
-
-            label = file[:-4]
-            x = data[:, 0].tolist()
-            y = data[:, 1].tolist()
-
+            x, y, label = data[:, 0], data[:, 1], file[:-4]
             self.ui.SIFG_plot.plot(x, y, label=label)
 
         for tup in args:
+            self.ui.SIFG_plot.plot(tup[0], tup[1], label=tup[2])
+
             file_name = os.getcwd() + "/IFR/cache/SIFG_plot_data/" + tup[2]
             x, y = tup[0].reshape((-1, 1)), tup[1].reshape((-1, 1))
             data = np.concatenate((x, y), axis=1)
             np.save(file_name, data)
-
-            self.ui.SIFG_plot.plot(tup[0], tup[1], label=tup[2])
 
         self.ui.SIFG_plot.legend()
         self.ui.SIFG_plot.grid()
@@ -245,20 +252,18 @@ class Controller(object):
 
         files = os.listdir(os.getcwd() + "/IFR/cache/SSC_plot_data")
         for file in files:
-            file_name = os.getcwd() + "\IFR\cache\SSC_plot_data\\" + file
+            file_name = os.getcwd() + "/IFR/cache/SSC_plot_data/" + file
             data = np.load(file_name)
-            label = file[:-4]
-            x = data[:, 0]
-            y = data[:, 1]
-
+            x, y, label = data[:, 0], data[:, 1], file[:-4]
             self.ui.SSC_plot.plot(x, y, label=label)
 
         for tup in args:
-            file_name = os.getcwd() + "/IFR/cache/SSC_plot_data/" + tup[2]
-            data = np.concatenate((tup[0].reshape((-1, 1)), tup[1].reshape((-1, 1))), axis=1)
-            np.save(file_name, data)
-
             self.ui.SSC_plot.plot(tup[0], tup[1], label=tup[2])
+
+            file_name = os.getcwd() + "/IFR/cache/SSC_plot_data/" + tup[2]
+            x, y = tup[0].reshape((-1, 1)), tup[1].reshape((-1, 1))
+            data = np.concatenate((x, y), axis=1)
+            np.save(file_name, data)
 
         self.ui.SSC_plot.legend()
         self.ui.SSC_plot.grid()
@@ -273,7 +278,6 @@ class Controller(object):
             If `sample=True`, the selected file upload will initialize the
             sample data, else it will initialize the background data.
         """
-
 
         path, _ = QFileDialog.getOpenFileName(caption="Open File", filter="OPUS files (*.0)")
         
@@ -290,7 +294,6 @@ class Controller(object):
             label = "Sample"
             self.SSC_plot((x, y, label))
 
-
         else:
             self.background_data = OPUSLoader(path)
 
@@ -303,8 +306,6 @@ class Controller(object):
             y = self.background_data.data["SSC"].y
             label = "Background"
             self.SSC_plot((x, y, label))
-        
-        print("File Uploaded")
 
     def fringe_localization(self) -> None:
         print("Fringe Localized")
