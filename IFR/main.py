@@ -1,51 +1,344 @@
 
 
-from spectra import DataOperations,  OPUSLoader
+from spectra.operations import DataOperations
+from spectra.dataobjects import OPUSLoader
+from functools import partial
+from typing import Literal, Tuple
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from PyQt5.QtWidgets import (
+    QApplication, QButtonGroup, QCheckBox, QGridLayout, QLabel, QLineEdit,
+    QMainWindow, QPushButton, QRadioButton, QScrollArea, QVBoxLayout, QWidget,
+    QFileDialog
+)
+from PyQt5.QtCore import Qt
 import matplotlib.pyplot as plt
+import sys
+import numpy as np
+import os
 
 
-# Get file paths.
-background_file_name = "BCKGRND_294.65K_8M_6X_03-17-21_15.31_Emission back parallel input_0.015360_80 kHz_KBr_BEB_AVG120.0"
-sample_file_name = "Propene_0.101Torr_294.65K_8M_6X_03-17-21_23.54_Emission back parallel input_0.000960_80 kHz_KBr_BEB_AVG122.0"
-file_directory_path = "IFR/data/"
+class UI(QMainWindow):
+    
+    def __init__(self) -> None:
+        """Initialize main UI window."""
 
-background_path = file_directory_path + background_file_name
-sample_path = file_directory_path + sample_file_name
+        super().__init__()
+
+        self.fringe_paths = {}
+
+        self.setWindowTitle("Interference-Fringe-Removal")
+        
+        self.layout = QGridLayout()
+        self.layout.addWidget(self._SIFG_display(), 1, 1, 1, 1)
+        self.layout.addWidget(self._SSC_display(), 1, 2, 1, 1)
+        self.layout.addWidget(self._base_display(), 2, 1, 1, 3)
+
+        self.centralWidget = QWidget(self)
+        self.setCentralWidget(self.centralWidget)
+        self.centralWidget.setLayout(self.layout)
+
+        self.show()
+
+    def _SIFG_display(self) -> QWidget:
+        """Return the SIFG display widget.
+
+        Returns
+        -------
+        QWidget
+            Widget containing the SIFG `matplotlib` canvas.
+        """
+
+        self.SIFG_figure = plt.figure()
+        self.SIFG_canvas = FigureCanvas(self.SIFG_figure)
+        self.SIFG_toolbar = NavigationToolbar(self.SIFG_canvas, self)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.SIFG_toolbar)
+        layout.addWidget(self.SIFG_canvas)
+
+        self.SIFG_window = QWidget()
+        self.SIFG_window.setLayout(layout)
+
+        self.SIFG_plot = self.SIFG_figure.add_subplot(111)
+        self.SIFG_plot.set_title("Interferogram")
+        self.SIFG_canvas.draw()
+
+        return self.SIFG_window
+
+    def _SSC_display(self) -> QWidget:
+        """Return the SSC display widget.
+
+        Returns
+        -------
+        QWidget
+            Widget containing the SSC `matplotlib` canvas.
+        """
+
+        self.SSC_figure = plt.figure()
+        self.SSC_canvas = FigureCanvas(self.SSC_figure)
+        self.SSC_toolbar = NavigationToolbar(self.SSC_canvas, self)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.SSC_toolbar)
+        layout.addWidget(self.SSC_canvas)
+
+        self.SSC_window = QWidget()
+        self.SSC_window.setLayout(layout)
+
+        self.SSC_plot = self.SSC_figure.add_subplot(111)
+        self.SSC_plot.set_title("Spectrograph")
+        self.SSC_canvas.draw()
+
+        return self.SSC_window
+    
+    def _base_display(self) -> QWidget:
+        """Return the base controls widget.
+
+        Returns
+        -------
+        QWidget
+            Widget containing the main data handling controls.
+        """
+
+        # Widget initialization.
+        self.background_upload = QPushButton("Upload Background File")
+        self.sample_upload = QPushButton("Upload Sample File")
+        self.fringe_start = QLineEdit()
+        self.fringe_end = QLineEdit()
+        self.select_fringe = QPushButton("Select")
+        self.mode_S = QRadioButton("Single Beam")
+        self.mode_A = QRadioButton("Absorbance")
+        self.mode_T = QRadioButton("Transmittance")
+        self.update_plot = QPushButton("Update Plot")
+
+        # Widgit styling.
+        self.background_upload.setStyleSheet("background-color: lightgrey")
+        self.sample_upload.setStyleSheet("background-color: lightgrey")
+        self.select_fringe.setStyleSheet("background-color: lightgrey")
+        self.update_plot.setStyleSheet("background-color: lightgrey")
+
+        # Button grouping.
+        self.mode_button_group = QButtonGroup(self.mode_S)
+        self.mode_button_group.addButton(self.mode_S)
+        self.mode_button_group.addButton(self.mode_A)
+        self.mode_button_group.addButton(self.mode_T)
+        self.mode_S.setChecked(True)
+    
+        # Widget organization.
+        layout = QGridLayout()
+        layout.addWidget(QLabel("<b>Data Uploading</b>"), 1, 1, 1, 1)
+        layout.addWidget(self.background_upload, 2, 1, 1, 1)
+        layout.addWidget(self.sample_upload, 3, 1, 1, 1)
+        layout.addWidget(QLabel("<b>Fringe Localization</b>"), 1, 2, 1, 2)
+        layout.addWidget(QLabel("Start:"), 2, 2, 1, 1)
+        layout.addWidget(self.fringe_start, 2, 3, 1, 1)
+        layout.addWidget(QLabel("End:"), 3, 2, 1, 1)
+        layout.addWidget(self.fringe_end, 3, 3, 1, 1)
+        layout.addWidget(self.select_fringe, 4, 2, 1, 2)
+        layout.addWidget(QLabel("<b>Fringe Select</b>"), 1, 4, 1, 1)
+        layout.addWidget(self._scrollable_area(), 2, 4, 3, 1)
+        layout.addWidget(QLabel("<b>Data Mode</b>"), 1, 5, 1, 1)
+        layout.addWidget(self.mode_S, 2, 5, 1, 1)
+        layout.addWidget(self.mode_A, 3, 5, 1, 1)
+        layout.addWidget(self.mode_T, 4, 5, 1, 1)
+        layout.addWidget(QLabel("<b>Update Data</b>"), 1, 6, 1, 1)
+        layout.addWidget(self.update_plot, 2, 6, 1, 1)
+
+        baseWindow = QWidget()
+        baseWindow.setLayout(layout)
+
+        return baseWindow
+    
+    def _scrollable_area(self) -> QScrollArea:
+        """Return a scrollable "Fringe Select" window.
+
+        Returns
+        -------
+        QScrollArea
+            Scrollable "Fringe Select" window.
+        """
+
+        self.scroll_window = QScrollArea()
+        self.scroll_widget = QWidget()
+
+        layout = QVBoxLayout()
+        for key in self.fringe_paths.keys():
+            layout.addWidget(QCheckBox(key))
+        self.scroll_widget.setLayout(layout)
+
+        self.scroll_window.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.scroll_window.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll_window.setWidget(self.scroll_widget)
+
+        return self.scroll_window
 
 
-# Prepare file data.
-background_data = OPUSLoader(background_path)
-sample_data = OPUSLoader(sample_path)
+class Controller(object):
 
-background_SSC = DataOperations().mertz(background_data.data["SIFG"], background_data.data["SSC"])
-background_SIFG = DataOperations().IFFT(background_SSC)
+    def __init__(self, ui):
+        """Initialize `Controller` class."""
 
-sample_SSC = DataOperations().mertz(sample_data.data["SIFG"], sample_data.data["SSC"])
-sample_SIFG = DataOperations().IFFT(sample_SSC)
+        self.ui = ui
+        
+        self._connect_signals()
+    
+    def _connect_signals(self) -> None:
+        """Add widget functionality."""
+        
+        self.ui.background_upload.clicked.connect(partial(self.upload_data, False))
+        self.ui.sample_upload.clicked.connect(partial(self.upload_data, True))
+        self.ui.select_fringe.clicked.connect(self.fringe_localization)
+        self.ui.mode_S.clicked.connect(partial(self.mode_change, "S"))
+        self.ui.mode_A.clicked.connect(partial(self.mode_change, "A"))
+        self.ui.mode_T.clicked.connect(partial(self.mode_change, "T"))
+        self.ui.update_plot.clicked.connect(self.update_plot)
+
+    def SIFG_plot(self, *args: Tuple) -> None:
+        """Plot interferogram data.
+
+        Parameters
+        ----------
+        args : tuple
+            Tuple of length three with format `(x, y, label)` where `x` is the
+            x data, `y` is the y-data, and `label` is the plot label.
+        """
+
+        self.ui.SIFG_plot.clear()
+        self.ui.SIFG_plot.set_title("Interferogram")
+
+        files = os.listdir(os.getcwd() + "/IFR/cache/SIFG_plot_data")
+        for file in files:
+            file_name = os.getcwd() + "/IFR/cache/SIFG_plot_data/" + file
+            data = np.load(file_name)
+
+            label = file[:-4]
+            x = data[:, 0].tolist()
+            y = data[:, 1].tolist()
+
+            self.ui.SIFG_plot.plot(x, y, label=label)
+
+        for tup in args:
+            file_name = os.getcwd() + "/IFR/cache/SIFG_plot_data/" + tup[2]
+            x, y = tup[0].reshape((-1, 1)), tup[1].reshape((-1, 1))
+            data = np.concatenate((x, y), axis=1)
+            np.save(file_name, data)
+
+            self.ui.SIFG_plot.plot(tup[0], tup[1], label=tup[2])
+
+        self.ui.SIFG_plot.legend()
+        self.ui.SIFG_plot.grid()
+        self.ui.SIFG_canvas.draw()
+    
+    def SSC_plot(self, *args):
+        """Plot spectrograph data.
+
+        Parameters
+        ----------
+        args : tuple
+            Tuple of length three with format `(x, y, label)` where `x` is the
+            x data, `y` is the y-data, and `label` is the plot label.
+        """
+
+        self.ui.SSC_plot.clear()
+        self.ui.SSC_plot.set_title("Spectrograph")
+
+        files = os.listdir(os.getcwd() + "/IFR/cache/SSC_plot_data")
+        for file in files:
+            file_name = os.getcwd() + "\IFR\cache\SSC_plot_data\\" + file
+            data = np.load(file_name)
+            label = file[:-4]
+            x = data[:, 0]
+            y = data[:, 1]
+
+            self.ui.SSC_plot.plot(x, y, label=label)
+
+        for tup in args:
+            file_name = os.getcwd() + "/IFR/cache/SSC_plot_data/" + tup[2]
+            data = np.concatenate((tup[0].reshape((-1, 1)), tup[1].reshape((-1, 1))), axis=1)
+            np.save(file_name, data)
+
+            self.ui.SSC_plot.plot(tup[0], tup[1], label=tup[2])
+
+        self.ui.SSC_plot.legend()
+        self.ui.SSC_plot.grid()
+        self.ui.SSC_canvas.draw()
+    
+    def upload_data(self, sample: bool) -> None:
+        """Upload OPUS data.
+
+        Parameters
+        ----------
+        sample : bool
+            If `sample=True`, the selected file upload will initialize the
+            sample data, else it will initialize the background data.
+        """
 
 
-while 1:
-    plt.figure()
+        path, _ = QFileDialog.getOpenFileName(caption="Open File", filter="OPUS files (*.0)")
+        
+        if sample:
+            self.sample_data = OPUSLoader(path)
 
-    plt.subplot(1, 2, 1)
-    plt.plot(background_SIFG.x, background_SIFG.y, label="Background IFG", linewidth=0.5)
-    plt.plot(sample_SIFG.x, sample_SIFG.y, label="Propene IFG", linewidth=0.5)
-    plt.title("Interferogram")
-    plt.legend()
-    plt.grid()
+            x = self.sample_data.data["SIFG"].x[::10]
+            y = self.sample_data.data["SIFG"].y[::10]
+            label = "Sample"
+            self.SIFG_plot((x, y, label))
 
-    plt.subplot(1, 2, 2)
-    plt.plot(background_SSC.x[::50], background_SSC.y[::50], label="Background SSC", linewidth=0.5)
-    plt.plot(sample_SSC.x[::50], sample_SSC.y[::50], label="Propene SSC", linewidth=0.5)
-    plt.title("Spectrograph")
-    plt.legend()
-    plt.grid()
+            x = self.sample_data.data["SSC"].x[::10]
+            y = self.sample_data.data["SSC"].y[::10]
+            label = "Sample"
+            self.SSC_plot((x, y, label))
 
-    plt.show()
 
-    start = int(input("Fringe Start Index: "))
-    end = int(input("Fringe End Index: "))
+        else:
+            self.background_data = OPUSLoader(path)
 
-    sample_SIFG = DataOperations().fringe_removal(start, end, sample_SIFG)
-    sample_SSC = DataOperations().FFT(sample_SIFG)
+            x = self.background_data.data["SIFG"].x
+            y = self.background_data.data["SIFG"].y
+            label = "Background"
+            self.SIFG_plot((x, y, label))
 
+            x = self.background_data.data["SSC"].x
+            y = self.background_data.data["SSC"].y
+            label = "Background"
+            self.SSC_plot((x, y, label))
+        
+        print("File Uploaded")
+
+    def fringe_localization(self) -> None:
+        print("Fringe Localized")
+
+    def mode_change(self, type: Literal["S", "A", "T"]) -> None:
+        print("Changing Mode")
+
+    def update_plot(self):
+        print("Updating Plot")
+
+
+def program_exit():
+    """Exit the UI program.
+
+    This function closes the UI after deleting all program cache files.
+    """
+
+    app.exec()
+
+    cwd = os.getcwd()
+
+    path = cwd + "/IFR/cache/SIFG_plot_data"
+    SIFG_files = os.listdir(path)
+    for file in SIFG_files:
+        os.remove(path + "/" + file)
+    
+    path = cwd + "/IFR/cache/SSC_plot_data"
+    SSC_files = os.listdir(path)
+    for file in SSC_files:
+        os.remove(path + "/" + file)
+
+
+app = QApplication([])
+app.setStyle("Windows")
+ui = UI()
+Controller(ui=ui)
+sys.exit(program_exit())
