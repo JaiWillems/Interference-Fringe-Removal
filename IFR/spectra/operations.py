@@ -319,7 +319,7 @@ class DataOperations(object):
 
         return dataBlock_new
     
-    def fringe_spectrograph(self, dataBlock: DataBlock, min: int, max: int) -> DataBlock:
+    def fringe_spectrograph(self, dataBlock: DataBlock, min: int, max: int, length: int) -> DataBlock:
         """Return the fringe spectrograph.
 
         This method takes a single, mono-directional interferogram with the
@@ -345,20 +345,23 @@ class DataOperations(object):
         LWN, SSP = dataBlock.params["LWN"], dataBlock.params["SSP"]
         x, y = dataBlock.x, dataBlock.y
 
+        n_init = length
+
         x_one, y_one = x[:max], y[:max]
         n_one = y_one.size
         x_two, y_two = x_one[:min], y_one[:min]
         n_two = y_two.size
 
-        fill_size = n_one - n_two
-        y_two = np.append(y_two, np.zeros((fill_size,)))
-        x_two = np.indices((n_one,))[0]
+        y_one = np.append(y_one, np.zeros((n_init - n_one,)))
+        x_one = np.indices((n_init,))[0]
+        y_two = np.append(y_two, np.zeros((n_init - n_two,)))
+        x_two = np.indices((n_init,))[0]
         n_two = y_two.size
 
-        y_one = np.fft.fft(y_one)[:n_one//2]
-        x_one = np.fft.fftfreq(n_one, 1.12843 * SSP / LWN)[:n_one//2]
-        y_two = np.fft.fft(y_two)[:n_two//2]
-        x_two = np.fft.fftfreq(n_two, 1.12843 * SSP / LWN)[:n_two//2]
+        y_one = np.fft.fft(y_one)#[:n_init//2]
+        x_one = np.fft.fftfreq(n_init, 1.12843 * SSP / LWN)#[:n_init//2]
+        y_two = np.fft.fft(y_two)#[:n_init//2]
+        x_two = np.fft.fftfreq(n_init, 1.12843 * SSP / LWN)#[:n_init//2]
 
         y_final = y_two - y_one
 

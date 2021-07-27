@@ -25,8 +25,6 @@ class UI(QMainWindow):
 
         super().__init__()
 
-        self.fringe_paths = {}
-
         self.setWindowTitle("Interference-Fringe-Removal")
         self.setFixedWidth(1500)
         self.setFixedHeight(750)
@@ -113,8 +111,8 @@ class UI(QMainWindow):
         self.background_upload = QPushButton("Background File Upload")
         self.sample_upload = QPushButton("Sample File upload")
         self.save_data = QPushButton("Save Filtered Data")
-        self.fringe_start = QLineEdit()
-        self.fringe_end = QLineEdit()
+        self.fringe_start = QLineEdit("0")
+        self.fringe_end = QLineEdit("0")
         self.select_fringe = QPushButton("Select")
         self.mode_S = QRadioButton("Single Beam")
         self.mode_A = QRadioButton("Absorbance")
@@ -171,15 +169,15 @@ class UI(QMainWindow):
         """
 
         self.scroll_window = QScrollArea()
-        self.scroll_widget = QWidget()
-
-        layout = QVBoxLayout()
-        for key in self.fringe_paths.keys():
-            layout.addWidget(QCheckBox(key))
-        self.scroll_widget.setLayout(layout)
-
         self.scroll_window.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.scroll_window.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll_window.setWidgetResizable(True)
+
+        self.scroll_widget = QWidget()
+
+        self.scroll_layout = QVBoxLayout()
+        self.scroll_widget.setLayout(self.scroll_layout)
+
         self.scroll_window.setWidget(self.scroll_widget)
 
         return self.scroll_window
@@ -192,7 +190,7 @@ class Controller(object):
 
         self.ui = ui
         self.fringes = {}
-        
+
         self._connect_signals()
     
     def _connect_signals(self) -> None:
@@ -219,17 +217,15 @@ class Controller(object):
         self.ui.SIFG_plot.clear()
         self.ui.SIFG_plot.set_title("Interferogram")
 
-        files = os.listdir(os.getcwd() + "/IFR/cache/SIFG_plot_data")
-        for file in files:
-            path, label = os.getcwd() + "/IFR/cache/SIFG_plot_data/", file[:-4]
-            x, y = self._cache_file_load(path, label)
-            self.ui.SIFG_plot.plot(x, y, label=label)
-
         for tup in args:
             x, y, label = tup[0], tup[1], tup[2]
             path = os.getcwd() + "/IFR/cache/SIFG_plot_data/"
             self._cache_file_save(path, label, x, y)
 
+        files = os.listdir(os.getcwd() + "/IFR/cache/SIFG_plot_data")
+        for file in files:
+            path, label = os.getcwd() + "/IFR/cache/SIFG_plot_data/", file[:-4]
+            x, y = self._cache_file_load(path, label)
             self.ui.SIFG_plot.plot(x, y, label=label)
 
         self.ui.SIFG_plot.legend()
@@ -249,17 +245,15 @@ class Controller(object):
         self.ui.SSC_plot.clear()
         self.ui.SSC_plot.set_title("Spectrograph")
 
-        files = os.listdir(os.getcwd() + "/IFR/cache/SSC_plot_data")
-        for file in files:
-            path, label = os.getcwd() + "/IFR/cache/SSC_plot_data/", file[:-4]
-            x, y = self._cache_file_load(path, label)
-            self.ui.SSC_plot.plot(x, y, label=label)
-
         for tup in args:
             x, y, label = tup[0], tup[1], tup[2]
             path = os.getcwd() + "/IFR/cache/SSC_plot_data/"
             self._cache_file_save(path, label, x, y)
 
+        files = os.listdir(os.getcwd() + "/IFR/cache/SSC_plot_data")
+        for file in files:
+            path, label = os.getcwd() + "/IFR/cache/SSC_plot_data/", file[:-4]
+            x, y = self._cache_file_load(path, label)
             self.ui.SSC_plot.plot(x, y, label=label)
 
         self.ui.SSC_plot.legend()
@@ -281,13 +275,13 @@ class Controller(object):
         if sample:
             self.sample_data = OPUSLoader(path)
 
-            x = self.sample_data.data["SIFG"].x[::10]
-            y = self.sample_data.data["SIFG"].y[::10]
+            x = self.sample_data.data["SIFG"].x
+            y = self.sample_data.data["SIFG"].y
             label = "Sample SIFG"
             self.SIFG_plot((x, y, label))
 
-            x = self.sample_data.data["SSC"].x[::10]
-            y = self.sample_data.data["SSC"].y[::10]
+            x = self.sample_data.data["SSC"].x
+            y = self.sample_data.data["SSC"].y
             label = "Sample SSC"
             self.SSC_plot((x, y, label))
 
@@ -319,21 +313,23 @@ class Controller(object):
         background_data = self.background_data.data["SIFG"]
         background_label = "fringe_" + str(np.max(background_data.y[np.where((start < background_data.x) & (background_data.x < end))])) + "b"
 
-        fringe_spectrograph = DataOperations().fringe_spectrograph(background_data, start, end)
+        length = self.background_data.data["SSC"].y.size
+        fringe_spectrograph = DataOperations().fringe_spectrograph(background_data, start, end, length)
         background_x, background_y = fringe_spectrograph.x, fringe_spectrograph.y
 
         sample_data = self.sample_data.data["SIFG"]
         sample_label = "fringe_" + str(np.max(sample_data.y[np.where((start < sample_data.x) & (sample_data.x < end))])) + "s"
 
-        fringe_spectrograph = DataOperations().fringe_spectrograph(sample_data, start, end)
+        length = self.sample_data.data["SSC"].y.size
+        fringe_spectrograph = DataOperations().fringe_spectrograph(sample_data, start, end, length)
         sample_x, sample_y = fringe_spectrograph.x, fringe_spectrograph.y
 
         path = os.getcwd() + "/IFR/cache/fringe_spectrographs/"
         self._cache_file_save(path, background_label, background_x, background_y)
         self._cache_file_save(path, sample_label, sample_x, sample_y)
 
-        self._update_fringe_list(background_label)
-        self._update_fringe_list(sample_label)
+        # self._update_fringe_list(background_label)
+        self._update_fringe_list(sample_label + "," + background_label)
 
         self.fringes[background_label] = start, end
         self.fringes[sample_label] = start, end
@@ -346,6 +342,7 @@ class Controller(object):
         path : str
             Path to the cache file of interest. The path must end with a
             forward slash.
+
         label : str
             Label identifier used for file naming.
         x, y : np.array
@@ -380,14 +377,46 @@ class Controller(object):
 
         return x, y
 
-    def _update_fringe_list(self, label):
-        pass
+    def _update_fringe_list(self, label: str) -> None:
+        """Update the fringe selection scrollable area.
+
+        Parameters
+        ----------
+        label : str
+            Label identifier of the fringe.
+        """
+
+        layout = self.ui.scroll_widget.layout()
+        layout.insertWidget(layout.count() - 1, QCheckBox(label))
 
     def mode_change(self, type: Literal["S", "A", "T"]) -> None:
         print("Changing Mode")
 
     def update_plot(self):
-        print("Updating Plot")
+        """
+        """
+
+        fringe_names = []
+        for i in range(self.ui.scroll_layout.count()):
+            widget = self.ui.scroll_layout.itemAt(i).widget()
+            if widget.isChecked():
+                fringe_names.append(widget.text())
+        
+        background_data = self.background_data.data["SSC"].copy()
+        sample_data = self.sample_data.data["SSC"].copy()
+
+        path = os.getcwd() + "/IFR/cache/fringe_spectrographs/"
+        for fringe in fringe_names:
+            fringe_one, fringe_two = fringe.split(",")
+
+            _, y = self._cache_file_load(path, fringe_one)
+            sample_data.y = sample_data.y - y
+
+            _, y = self._cache_file_load(path, fringe_two)
+            background_data.y = background_data.y - y
+        
+        self.SSC_plot((sample_data.x, sample_data.y, "Processed Sample SSC"), (background_data.x, background_data.y, "Processed Background SSC"))
+        
 
 
 def program_exit():
