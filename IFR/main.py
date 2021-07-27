@@ -191,6 +191,7 @@ class Controller(object):
         """Initialize `Controller` class."""
 
         self.ui = ui
+        self.fringes = {}
         
         self._connect_signals()
     
@@ -220,18 +221,16 @@ class Controller(object):
 
         files = os.listdir(os.getcwd() + "/IFR/cache/SIFG_plot_data")
         for file in files:
-            file_name = os.getcwd() + "/IFR/cache/SIFG_plot_data/" + file
-            data = np.load(file_name)
-            x, y, label = data[:, 0], data[:, 1], file[:-4]
+            path, label = os.getcwd() + "/IFR/cache/SIFG_plot_data/", file[:-4]
+            x, y = self._cache_file_load(path, label)
             self.ui.SIFG_plot.plot(x, y, label=label)
 
         for tup in args:
-            self.ui.SIFG_plot.plot(tup[0], tup[1], label=tup[2])
+            x, y, label = tup[0], tup[1], tup[2]
+            path = os.getcwd() + "/IFR/cache/SIFG_plot_data/"
+            self._cache_file_save(path, label, x, y)
 
-            file_name = os.getcwd() + "/IFR/cache/SIFG_plot_data/" + tup[2]
-            x, y = tup[0].reshape((-1, 1)), tup[1].reshape((-1, 1))
-            data = np.concatenate((x, y), axis=1)
-            np.save(file_name, data)
+            self.ui.SIFG_plot.plot(x, y, label=label)
 
         self.ui.SIFG_plot.legend()
         self.ui.SIFG_plot.grid()
@@ -252,18 +251,16 @@ class Controller(object):
 
         files = os.listdir(os.getcwd() + "/IFR/cache/SSC_plot_data")
         for file in files:
-            file_name = os.getcwd() + "/IFR/cache/SSC_plot_data/" + file
-            data = np.load(file_name)
-            x, y, label = data[:, 0], data[:, 1], file[:-4]
+            path, label = os.getcwd() + "/IFR/cache/SSC_plot_data/", file[:-4]
+            x, y = self._cache_file_load(path, label)
             self.ui.SSC_plot.plot(x, y, label=label)
 
         for tup in args:
-            self.ui.SSC_plot.plot(tup[0], tup[1], label=tup[2])
+            x, y, label = tup[0], tup[1], tup[2]
+            path = os.getcwd() + "/IFR/cache/SSC_plot_data/"
+            self._cache_file_save(path, label, x, y)
 
-            file_name = os.getcwd() + "/IFR/cache/SSC_plot_data/" + tup[2]
-            x, y = tup[0].reshape((-1, 1)), tup[1].reshape((-1, 1))
-            data = np.concatenate((x, y), axis=1)
-            np.save(file_name, data)
+            self.ui.SSC_plot.plot(x, y, label=label)
 
         self.ui.SSC_plot.legend()
         self.ui.SSC_plot.grid()
@@ -286,12 +283,12 @@ class Controller(object):
 
             x = self.sample_data.data["SIFG"].x[::10]
             y = self.sample_data.data["SIFG"].y[::10]
-            label = "Sample"
+            label = "Sample SIFG"
             self.SIFG_plot((x, y, label))
 
             x = self.sample_data.data["SSC"].x[::10]
             y = self.sample_data.data["SSC"].y[::10]
-            label = "Sample"
+            label = "Sample SSC"
             self.SSC_plot((x, y, label))
 
         else:
@@ -299,16 +296,92 @@ class Controller(object):
 
             x = self.background_data.data["SIFG"].x
             y = self.background_data.data["SIFG"].y
-            label = "Background"
+            label = "Background SIFG"
             self.SIFG_plot((x, y, label))
 
             x = self.background_data.data["SSC"].x
             y = self.background_data.data["SSC"].y
-            label = "Background"
+            label = "Background SSC"
             self.SSC_plot((x, y, label))
 
     def fringe_localization(self) -> None:
-        print("Fringe Localized")
+        """Calculate fringe spectrograph component.
+
+        This method uses the user defined fringe bounds to localize the fringe
+        and calculate the spectrograph component due to the fringe.
+        Additionally it will save the resulting fringe spectrograph components
+        to `.npy` binary files.
+        """
+
+        start = int(self.ui.fringe_start.text())
+        end = int(self.ui.fringe_end.text())
+
+        background_data = self.background_data.data["SIFG"]
+        background_label = "fringe_" + str(np.max(background_data.y[np.where((start < background_data.x) & (background_data.x < end))])) + "b"
+
+        fringe_spectrograph = DataOperations().fringe_spectrograph(background_data, start, end)
+        background_x, background_y = fringe_spectrograph.x, fringe_spectrograph.y
+
+        sample_data = self.sample_data.data["SIFG"]
+        sample_label = "fringe_" + str(np.max(sample_data.y[np.where((start < sample_data.x) & (sample_data.x < end))])) + "s"
+
+        fringe_spectrograph = DataOperations().fringe_spectrograph(sample_data, start, end)
+        sample_x, sample_y = fringe_spectrograph.x, fringe_spectrograph.y
+
+        path = os.getcwd() + "/IFR/cache/fringe_spectrographs/"
+        self._cache_file_save(path, background_label, background_x, background_y)
+        self._cache_file_save(path, sample_label, sample_x, sample_y)
+
+        self._update_fringe_list(background_label)
+        self._update_fringe_list(sample_label)
+
+        self.fringes[background_label] = start, end
+        self.fringes[sample_label] = start, end
+    
+    def _cache_file_save(self, path: str, label: str, x: np.array, y: np.array) -> None:
+        """Save file to cache system as a `.npy` format.
+
+        Parameters
+        ----------
+        path : str
+            Path to the cache file of interest. The path must end with a
+            forward slash.
+        label : str
+            Label identifier used for file naming.
+        x, y : np.array
+            Arrays of shape (n,) containing data to be saved.
+        """
+    
+        file_name = path + label
+        x, y = x.reshape((-1, 1)), y.reshape((-1, 1))
+        data = np.concatenate((x, y), axis=1)
+        np.save(file_name, data)
+    
+    def _cache_file_load(self, path: str, label: str) -> Tuple:
+        """Load file from cache system.
+
+        Parameters
+        ----------
+        path : str
+            Path to the cache file of interest. The path must end with a
+            forward slash.
+        label : str
+            Label identifier used for file naming.
+        
+        Returns
+        -------
+        x, y : np.array
+            Arrays of shape (n,) containing data to be saved.
+        """
+    
+        file_name = path + label + ".npy"
+        data = np.load(file_name)
+        x, y = data[:, 0], data[:, 1]
+
+        return x, y
+
+    def _update_fringe_list(self, label):
+        pass
 
     def mode_change(self, type: Literal["S", "A", "T"]) -> None:
         print("Changing Mode")
@@ -327,15 +400,16 @@ def program_exit():
 
     cwd = os.getcwd()
 
-    path = cwd + "/IFR/cache/SIFG_plot_data"
-    SIFG_files = os.listdir(path)
-    for file in SIFG_files:
-        os.remove(path + "/" + file)
-    
-    path = cwd + "/IFR/cache/SSC_plot_data"
-    SSC_files = os.listdir(path)
-    for file in SSC_files:
-        os.remove(path + "/" + file)
+    paths = [
+        cwd + "/IFR/cache/SIFG_plot_data/",
+        cwd + "/IFR/cache/SSC_plot_data/",
+        cwd + "/IFR/cache/fringe_spectrographs/"
+    ]
+
+    for path in paths:
+        files = os.listdir(path)
+        for file in files:
+            os.remove(path + file)
 
 
 app = QApplication([])
