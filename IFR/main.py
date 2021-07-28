@@ -135,6 +135,12 @@ class UI(QMainWindow):
         self.select_fringe.setStyleSheet("background-color: lightgrey")
         self.update_plot.setStyleSheet("background-color: lightgrey")
 
+        # Setting QCheckBox check preference.
+        self.background_plot.setChecked(True)
+        self.sample_plot.setChecked(True)
+        self.original_plot.setChecked(True)
+        self.processed_plot.setChecked(True)
+
         # Button grouping.
         self.mode_button_group = QButtonGroup(self.mode_S)
         self.mode_button_group.addButton(self.mode_S)
@@ -231,11 +237,6 @@ class Controller(object):
         self.ui.SIFG_plot.set_xlabel("Steps")
         self.ui.SIFG_plot.set_ylabel("Intensity")
 
-        for tup in args:
-            x, y, label = tup[0], tup[1], tup[2]
-            path = os.getcwd() + "/IFR/cache/SIFG_plot_data/"
-            self._cache_file_save(path, label, x, y)
-
         files = os.listdir(os.getcwd() + "/IFR/cache/SIFG_plot_data")
         for file in files:
             path, label = os.getcwd() + "/IFR/cache/SIFG_plot_data/", file[:-4]
@@ -262,21 +263,62 @@ class Controller(object):
         processed_bool = self.ui.processed_plot.isChecked()
         fringe_bool = self.ui.select_fringe_plot.isChecked()
 
+        if self.ui.mode_S.isChecked():
+            type = "S"
+        elif self.ui.mode_A.isChecked():
+            type = "A"
+        else:
+            type = "T"
+
         self.ui.SSC_plot.clear()
         self.ui.SSC_plot.set_title("Spectrograph")
         self.ui.SSC_plot.set_xlabel("Frequency")
         self.ui.SSC_plot.set_ylabel("Intensity")
 
-        for tup in args:
-            x, y, label = tup[0], tup[1], tup[2]
-            path = os.getcwd() + "/IFR/cache/SSC_plot_data/"
-            self._cache_file_save(path, label, x, y)
-
         files = os.listdir(os.getcwd() + "/IFR/cache/SSC_plot_data")
         for file in files:
-            path, label = os.getcwd() + "/IFR/cache/SSC_plot_data/", file[:-4]
-            x, y = self._cache_file_load(path, label)
-            self.ui.SSC_plot.plot(x, y, label=label)
+            plot = False
+
+            if original_bool and file[4] == "O":
+                if file[6] == type:
+                    if type == "S":
+                        if background_bool and file[8] == "B":
+                            plot = True
+                        if sample_bool and file[8] == "S":
+                            plot = True
+                    else:
+                        plot = True
+            elif processed_bool and file[4] == "P":
+                if file[6] == type:
+                    if type == "S":
+                        if background_bool and file[8] == "B":
+                            plot = True
+                        if sample_bool and file[8] == "S":
+                            plot = True
+                    else:
+                        plot = True
+
+            if plot:
+                path, label = os.getcwd() + "/IFR/cache/SSC_plot_data/", file[:-4]
+                x, y = self._cache_file_load(path, label)
+                self.ui.SSC_plot.plot(x, y, label=label)
+        
+        if fringe_bool:
+            path = os.getcwd() + "/IFR/cache/fringe_spectrographs/"
+
+            fringe_names = []
+            for i in range(self.ui.scroll_layout.count()):
+                widget = self.ui.scroll_layout.itemAt(i).widget()
+                if widget.isChecked():
+                    background_fringe_label, sample_fringe_label, _ = widget.text().split(", ")
+                    if background_bool:
+                        fringe_names.append(background_fringe_label)
+                    if sample_bool:
+                        fringe_names.append(sample_fringe_label)
+            
+            for label in fringe_names:
+                x, y = self._cache_file_load(path, label)
+                self.ui.SSC_plot.plot(x, y, label=label)
 
         self.ui.SSC_plot.legend()
         self.ui.SSC_plot.grid()
@@ -297,28 +339,42 @@ class Controller(object):
         if sample:
             self.sample_data = OPUSLoader(path)
 
-            x = self.sample_data.data["SIFG"].x
-            y = self.sample_data.data["SIFG"].y
-            label = "SIFG_O_S"
-            self.SIFG_plot((x, y, label))
+            x1 = self.sample_data.data["SIFG"].x
+            y1 = self.sample_data.data["SIFG"].y
+            label1 = "SIFG_O_S"
 
-            x = self.sample_data.data["SSC"].x
-            y = self.sample_data.data["SSC"].y
-            label = "SSC_O_S_S"
-            self.SSC_plot((x, y, label))
+            x2 = self.sample_data.data["SSC"].x
+            y2 = self.sample_data.data["SSC"].y
+            label2 = "SSC_O_S_S"
+
+            try:
+                plot_params = self.prepare_plot_data(self.background_data.data["SSC"], self.sample_data.data["SSC"], state="O")
+            except:
+                plot_params = [(x2, y2, label2)]
+
+            self.save_plot_data((x1, y1, label1), *plot_params)
+            self.SIFG_plot()
+            self.SSC_plot()
 
         else:
             self.background_data = OPUSLoader(path)
 
-            x = self.background_data.data["SIFG"].x
-            y = self.background_data.data["SIFG"].y
-            label = "SIFG_O_B"
-            self.SIFG_plot((x, y, label))
+            x1 = self.background_data.data["SIFG"].x
+            y1 = self.background_data.data["SIFG"].y
+            label1 = "SIFG_O_B"
 
-            x = self.background_data.data["SSC"].x
-            y = self.background_data.data["SSC"].y
-            label = "SSC_O_B_S"
-            self.SSC_plot((x, y, label))
+            x2 = self.background_data.data["SSC"].x
+            y2 = self.background_data.data["SSC"].y
+            label2 = "SSC_O_S_B"
+
+            try:
+                plot_params = self.prepare_plot_data(self.background_data.data["SSC"], self.sample_data.data["SSC"], state="O")
+            except:
+                plot_params = [(x2, y2, label2)]
+
+            self.save_plot_data((x1, y1, label1), *plot_params)
+            self.SIFG_plot()
+            self.SSC_plot()
 
     def fringe_localization(self) -> None:
         """Calculate fringe spectrograph component.
@@ -338,6 +394,7 @@ class Controller(object):
 
         length = self.background_data.data["SSC"].y.size
         fringe_spectrograph = DataOperations().fringe_spectrograph(background_data, start, end, length)
+        fringe_spectrograph = DataOperations().alignment(fringe_spectrograph, self.background_data.data["SSC"])
         background_x, background_y = fringe_spectrograph.x, fringe_spectrograph.y
 
         sample_data = self.sample_data.data["SIFG"]
@@ -346,6 +403,7 @@ class Controller(object):
 
         length = self.sample_data.data["SSC"].y.size
         fringe_spectrograph = DataOperations().fringe_spectrograph(sample_data, start, end, length)
+        fringe_spectrograph = DataOperations().alignment(fringe_spectrograph, self.sample_data.data["SSC"])
         sample_x, sample_y = fringe_spectrograph.x, fringe_spectrograph.y
 
         path = os.getcwd() + "/IFR/cache/fringe_spectrographs/"
@@ -435,7 +493,8 @@ class Controller(object):
             background_data.y = background_data.y - y
         
         plot_params = self.prepare_plot_data(background_data, sample_data, state="P")
-        self.SSC_plot(*plot_params)
+        self.save_plot_data(*plot_params)
+        self.SSC_plot()
     
     def prepare_plot_data(self, dataBlock_b: DataBlock, dataBlock_s: DataBlock, state: Literal["O", "P"]) -> List:
         """Return plot tuples of correct mode data.
@@ -456,23 +515,45 @@ class Controller(object):
         Notes
         -----
         The returned list of plotting tuples can be unpacked into the
-        `SIFG_plot` and `SSC_plot` methods using the `*` parameter preix.
+        `save_plot_data` method using the `*` parameter preix.
         """
 
-        if self.ui.mode_A.isChecked() or self.ui.mode_T.isChecked():
-            background_align = DataOperations().alignment(dataBlock_b, dataBlock_s)
-            x = dataBlock_s.x
-            y = dataBlock_s.y / background_align.y
+        SSC_B_S = (dataBlock_b.x, dataBlock_b.y, f"SSC_{state}_S_B")
+        SSC_S_S = (dataBlock_s.x, dataBlock_s.y, f"SSC_{state}_S_S")
 
-            if self.ui.mode_T.isChecked():
-                y = np.exp(2 - y)
+        background_align = DataOperations().alignment(dataBlock_b, dataBlock_s)
+        x = dataBlock_s.x
+        y = dataBlock_s.y / background_align.y
 
-                return [(x, y, f"SSC_{state}_T")]
+        SSC_A = (x, y, f"SSC_{state}_A")
+
+        y = np.exp(2 - y)
+
+        SSC_T = (x, y, f"SSC_{state}_T")
+
+        return [SSC_B_S, SSC_S_S, SSC_A, SSC_T]
+    
+    def save_plot_data(self, *args):
+        """
+        """
+
+        SIFG_path = os.getcwd() + "/IFR/cache/SIFG_plot_data/"
+        SSC_path = os.getcwd() + "/IFR/cache/SSC_plot_data/"
+        fringe_path = os.getcwd() + "/IFR/cache/fringe_spectrographs/"
+
+        for arg in args:
+            x, y, label = arg[0], arg[1], arg[2]
+
+            type = label.split("_")[0]
+
+            if type == "SSC":
+                path = SSC_path
+            elif type =="SIFG":
+                path = SIFG_path
+            else:
+                path = fringe_path
             
-            return [(x, y, f"SSC_{state}_A")]
-        
-        else:
-            return [(dataBlock_s.x, dataBlock_s.y, f"SSC_{state}_S_S"), (dataBlock_b.x, dataBlock_b.y, f"SSC_{state}_B_S")]
+            self._cache_file_save(path, label, x, y)
 
 
 

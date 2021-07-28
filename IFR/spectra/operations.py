@@ -311,10 +311,10 @@ class DataOperations(object):
         x_two = np.indices((n_init,))[0]
         n_two = y_two.size
 
-        y_one = np.fft.fft(y_one)#[:n_init//2]
-        x_one = np.fft.fftfreq(n_init, 1.12843 * SSP / LWN)#[:n_init//2]
-        y_two = np.fft.fft(y_two)#[:n_init//2]
-        x_two = np.fft.fftfreq(n_init, 1.12843 * SSP / LWN)#[:n_init//2]
+        y_one = np.fft.fft(y_one)[:n_init//2]
+        x_one = np.fft.fftfreq(n_init, 1.12843 * SSP / LWN)[:n_init//2]
+        y_two = np.fft.fft(y_two)[:n_init//2]
+        x_two = np.fft.fftfreq(n_init, 1.12843 * SSP / LWN)[:n_init//2]
 
         y_final = y_two - y_one
 
