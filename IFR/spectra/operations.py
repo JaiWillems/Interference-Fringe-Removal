@@ -26,8 +26,8 @@ class DataOperations(object):
         Return the Fast Fourier Transform of the `dataBlock`.
     IFFT(dataBlock)
         Return the Inverse Fast Fourier Transform of the `dataBlock`.
-    fringe_removal(min, max, dataBlock)
-        Return `dataBlock` with fringe removed.
+    fringe_spectrograph(dataBlock, min, max, length)
+        Return the fringe spectrograph.
     alignment(dataBlock_one, dataBlock_two)
         Returned aligned `DataBlock` objects.
     """
@@ -106,8 +106,6 @@ class DataOperations(object):
         x, y : np.array
             Typle of arrays containing the corrected spectrograph.
         """
-
-        # fig = plt.figure()
 
         # Part 1.
         LWN = dataBlock.params["LWN"]
@@ -271,54 +269,6 @@ class DataOperations(object):
 
         return dataBlock_new
     
-    def fringe_removal(self, min: int, max: int, dataBlock: DataBlock) -> DataBlock:
-        """Return `dataBlock` with fringe removed.
-
-        This method removes the fringe specified by `start` and `end`,
-        inclusive, out of the inputted SIFG `DataBlock` and returns the
-        revised `DataBlock`.
-
-        Parameters
-        ----------
-        min : int
-            The start x-value of the fringe to remove.
-        max : int
-            The end x-value of the fringe to remove.
-        dataBlock : DataBlock
-            A SIFG `DataBlock` to edit.
-        
-        Returns
-        -------
-        DataBlock
-            Return a `DataBlock` object with the detailed fringe removed.
-        """
-
-        x = dataBlock.x
-        y = dataBlock.y
-
-        ind = np.where((x < min) | (x > max))[0]
-
-        x_new = x[ind]
-        y_new = y[ind]
-
-        ind = np.where((x_new < -max) | (x_new > -min))[0]
-
-        x_new = x_new[ind]
-        y_new = y_new[ind]
-
-        dataBlock_new = DataBlock()
-
-        dataBlock_new.dim = dataBlock.dim
-        dataBlock_new.type = dataBlock.type
-        dataBlock_new.deriv_type = dataBlock.deriv_type
-        dataBlock_new.params = dataBlock.params
-        dataBlock_new.x = x_new
-        dataBlock_new.y = y_new
-        dataBlock_new.minY = np.min(y_new)
-        dataBlock_new.maxY = np.max(y_new)
-
-        return dataBlock_new
-    
     def fringe_spectrograph(self, dataBlock: DataBlock, min: int, max: int, length: int) -> DataBlock:
         """Return the fringe spectrograph.
 
@@ -335,6 +285,9 @@ class DataOperations(object):
             The lower bounding x-value of the selected fringe.
         max : int
             The upper bounding x-value of the selected fringe.
+        length : int
+            Length of `dataBlock`'s spectrograph such that zero filling the
+            inputted interferogram will cause alignment.
         
         Returns
         -------
@@ -378,7 +331,7 @@ class DataOperations(object):
 
         return dataBlock_new
 
-    def alignment(self, dataBlock_one: DataBlock, dataBlock_two: DataBlock) -> Tuple[DataBlock, DataBlock]:
+    def alignment(self, dataBlock_one: DataBlock, dataBlock_two: DataBlock) -> DataBlock:
         """Returned aligned `DataBlock` objects.
 
         This method interpolates the `DataBlock` with the shortest `x` and `y`
@@ -394,7 +347,7 @@ class DataOperations(object):
         Returns
         -------
         DataBlock
-            Return aligned `DataBlock` objects.
+            Return aligned `DataBlock` object.
         """
 
         y_one = dataBlock_one.y
@@ -422,4 +375,4 @@ class DataOperations(object):
         dataBlock_one_new.minY = np.min(y_one)
         dataBlock_one_new.maxY = np.max(y_one)
 
-        return dataBlock_one_new, dataBlock_two
+        return dataBlock_one_new
