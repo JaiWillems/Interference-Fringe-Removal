@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (
 )
 from spectra.dataobjects import DataBlock, OPUSLoader
 from spectra.operations import DataOperations
-from typing import List, Literal, Tuple
+from typing import List, Literal, Tuple, Union
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -221,6 +221,7 @@ class Controller(object):
         self.ui.sample_upload.clicked.connect(partial(self.upload_data, True))
         self.ui.select_fringe.clicked.connect(self.fringe_localization)
         self.ui.update_plot.clicked.connect(self.update_plot)
+        self.ui.save_data.clicked.connect(self.save_dpt)
 
     def SIFG_plot(self, *args: Tuple) -> None:
         """Plot interferogram data.
@@ -533,8 +534,14 @@ class Controller(object):
 
         return [SSC_B_S, SSC_S_S, SSC_A, SSC_T]
     
-    def save_plot_data(self, *args):
-        """
+    def save_plot_data(self, *args: Union[List, Tuple]) -> None:
+        """Save plottable data to `.npy` binary files.
+
+        Parameters
+        ----------
+        args : List, Tuple
+            A series of tuples containing the data x values, y values, and data
+            label in the following format: `(x, y, label)`.
         """
 
         SIFG_path = os.getcwd() + "/IFR/cache/SIFG_plot_data/"
@@ -554,7 +561,27 @@ class Controller(object):
                 path = fringe_path
             
             self._cache_file_save(path, label, x, y)
+    
+    def save_dpt(self) -> None:
+        """Save processed spectrograph as a DPT file.
 
+        This method only works when a proccessed data file exists.
+        """
+
+        SSC_path = os.getcwd() + "/IFR/cache/SSC_plot_data/"
+        path, _ = QFileDialog.getSaveFileName(caption="Save File", filter="Data Point Table files (*.dpt)")
+
+        background_x, background_y = self._cache_file_load(SSC_path, "SSC_P_S_B")
+        background_x = np.real(background_x).reshape((-1, 1))
+        background_y = np.real(background_y).reshape((-1, 1))
+        dpt_data = np.concatenate((background_x, background_y), axis=1)
+        np.savetxt(path[:-4] + "_BACKGROUND.dpt", dpt_data, fmt="%4.7f", delimiter=",") 
+
+        sample_x, sample_y = self._cache_file_load(SSC_path, "SSC_P_S_S")
+        sample_x = np.real(sample_x).reshape((-1, 1))
+        sample_y = np.real(sample_y).reshape((-1, 1))
+        dpt_data = np.concatenate((sample_x, sample_y), axis=1)
+        np.savetxt(path[:-4] + "_SAMPLE.dpt", dpt_data, fmt="%4.7f", delimiter=",")
 
 
 def program_exit():
