@@ -7,7 +7,6 @@ interferogram and spectrograph data held within `DataBlock` objects.
 
 from scipy.interpolate import interp1d
 from spectra.dataobjects import DataBlock
-from typing import Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -269,7 +268,7 @@ class DataOperations(object):
 
         return dataBlock_new
     
-    def fringe_spectrograph(self, dataBlock: DataBlock, min: int, max: int, length: int) -> DataBlock:
+    def fringe_spectrograph(self, dataBlock: DataBlock, min: int, max: int) -> DataBlock:
         """Return the fringe spectrograph.
 
         This method takes a single, mono-directional interferogram with the
@@ -285,38 +284,31 @@ class DataOperations(object):
             The lower bounding x-value of the selected fringe.
         max : int
             The upper bounding x-value of the selected fringe.
-        length : int
-            Length of `dataBlock`'s spectrograph such that zero filling the
-            inputted interferogram will cause alignment.
         
         Returns
         -------
         DataBlock
             Returns the fringe spectrograph component as a `DataBlock` object.
+            The fringe spectrograph will have the same number of points as the
+            inputted `dataBlock` size.
         """
 
         LWN, SSP = dataBlock.params["LWN"], dataBlock.params["SSP"]
-        x, y = dataBlock.x, dataBlock.y
+        y = dataBlock.y
 
-        n_init = length
+        n_init = 2 * y.size
 
-        x_one, y_one = x[:max], y[:max]
-        n_one = y_one.size
-        x_two, y_two = x_one[:min], y_one[:min]
-        n_two = y_two.size
+        y_one, y_two = y[:max], y[:min]
+        n_one, n_two = y_one.size, y_two.size
 
         y_one = np.append(y_one, np.zeros((n_init - n_one,)))
-        x_one = np.indices((n_init,))[0]
         y_two = np.append(y_two, np.zeros((n_init - n_two,)))
-        x_two = np.indices((n_init,))[0]
-        n_two = y_two.size
 
         y_one = np.fft.fft(y_one)[:n_init//2]
-        x_one = np.fft.fftfreq(n_init, 1.12843 * SSP / LWN)[:n_init//2]
         y_two = np.fft.fft(y_two)[:n_init//2]
-        x_two = np.fft.fftfreq(n_init, 1.12843 * SSP / LWN)[:n_init//2]
+        x = np.fft.fftfreq(n_init, SSP / LWN)[:n_init//2]
 
-        y_final = y_two - y_one
+        y_final = 3.5 * (y_one-np.min(y_one)) - 3.5 * (y_two-np.min(y_two))
 
         dataBlock_new = DataBlock()
 
@@ -324,7 +316,7 @@ class DataOperations(object):
         dataBlock_new.type = "FIG"
         dataBlock_new.deriv_type = dataBlock.deriv_type
         dataBlock_new.params = dataBlock.params
-        dataBlock_new.x = x_two
+        dataBlock_new.x = x
         dataBlock_new.y = y_final
         dataBlock_new.minY = np.min(y_final)
         dataBlock_new.maxY = np.max(y_final)

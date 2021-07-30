@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout, QWidget
 )
 from spectra.dataobjects import DataBlock, OPUSLoader
-from spectra.operations import DataOperations
+from spectra.operations import DataOperations as DO
 from typing import List, Literal, Tuple, Union
 import matplotlib.pyplot as plt
 import numpy as np
@@ -223,7 +223,7 @@ class Controller(object):
         self.ui.update_plot.clicked.connect(self.update_plot)
         self.ui.save_data.clicked.connect(self.save_dpt)
 
-    def SIFG_plot(self, *args: Tuple) -> None:
+    def SIFG_plot(self) -> None:
         """Plot interferogram data.
 
         Parameters
@@ -248,7 +248,7 @@ class Controller(object):
         self.ui.SIFG_plot.grid()
         self.ui.SIFG_canvas.draw()
 
-    def SSC_plot(self, *args):
+    def SSC_plot(self):
         """Plot spectrograph data.
 
         Parameters
@@ -311,7 +311,7 @@ class Controller(object):
             for i in range(self.ui.scroll_layout.count()):
                 widget = self.ui.scroll_layout.itemAt(i).widget()
                 if widget.isChecked():
-                    background_fringe_label, sample_fringe_label, _ = widget.text().split(", ")
+                    sample_fringe_label, background_fringe_label, _ = widget.text().split(", ")
                     if background_bool:
                         fringe_names.append(background_fringe_label)
                     if sample_bool:
@@ -344,9 +344,15 @@ class Controller(object):
             y1 = self.sample_data.data["SIFG"].y
             label1 = "SIFG_O_S"
 
-            x2 = self.sample_data.data["SSC"].x
-            y2 = self.sample_data.data["SSC"].y
+            LWN, SSP = self.sample_data.data["SIFG"].params["LWN"], self.sample_data.data["SIFG"].params["SSP"] # 
+            n = y1.size
+            y2 = np.append(y1, np.zeros(n,))
+            y2 = 3.5 * np.fft.fft(y2)[:n] # 
+            x2 = np.fft.fftfreq(2 * n, SSP / LWN)[:n] + 300 # 
             label2 = "SSC_O_S_S"
+
+            self.sample_data.data["SSC"].x = x2 # 
+            self.sample_data.data["SSC"].y = y2 # 
 
             try:
                 plot_params = self.prepare_plot_data(self.background_data.data["SSC"], self.sample_data.data["SSC"], state="O")
@@ -364,9 +370,15 @@ class Controller(object):
             y1 = self.background_data.data["SIFG"].y
             label1 = "SIFG_O_B"
 
-            x2 = self.background_data.data["SSC"].x
-            y2 = self.background_data.data["SSC"].y
+            LWN, SSP = self.background_data.data["SIFG"].params["LWN"], self.background_data.data["SIFG"].params["SSP"] # 
+            n = y1.size
+            y2 = np.append(y1, np.zeros(n,))
+            y2 = 3.5 * np.fft.fft(y2)[:n] # 
+            x2 = np.fft.fftfreq(2 * n, SSP / LWN)[:n] + 300 # 
             label2 = "SSC_O_S_B"
+
+            self.background_data.data["SSC"].x = x2 # 
+            self.background_data.data["SSC"].y = y2 # 
 
             try:
                 plot_params = self.prepare_plot_data(self.background_data.data["SSC"], self.sample_data.data["SSC"], state="O")
@@ -393,18 +405,14 @@ class Controller(object):
         ind = np.where((start < background_data.x) & (background_data.x < end))
         background_label = "fringe_" + str(np.max(background_data.y[ind])) + "b"
 
-        length = self.background_data.data["SSC"].y.size
-        fringe_spectrograph = DataOperations().fringe_spectrograph(background_data, start, end, length)
-        fringe_spectrograph = DataOperations().alignment(fringe_spectrograph, self.background_data.data["SSC"])
+        fringe_spectrograph = DO().fringe_spectrograph(background_data, start, end)
         background_x, background_y = fringe_spectrograph.x, fringe_spectrograph.y
 
         sample_data = self.sample_data.data["SIFG"]
         ind = np.where((start < sample_data.x) & (sample_data.x < end))
         sample_label = "fringe_" + str(np.max(sample_data.y[ind])) + "s"
 
-        length = self.sample_data.data["SSC"].y.size
-        fringe_spectrograph = DataOperations().fringe_spectrograph(sample_data, start, end, length)
-        fringe_spectrograph = DataOperations().alignment(fringe_spectrograph, self.sample_data.data["SSC"])
+        fringe_spectrograph = DO().fringe_spectrograph(sample_data, start, end)
         sample_x, sample_y = fringe_spectrograph.x, fringe_spectrograph.y
 
         path = os.getcwd() + "/IFR/cache/fringe_spectrographs/"
@@ -412,9 +420,6 @@ class Controller(object):
         self._cache_file_save(path, sample_label, sample_x, sample_y)
 
         self._update_fringe_list(sample_label + ", " + background_label + f", {start}-{end}")
-
-        self.fringes[background_label] = start, end
-        self.fringes[sample_label] = start, end
 
     def _cache_file_save(self, path: str, label: str, x: np.array, y: np.array) -> None:
         """Save file to cache system as a `.npy` format.
@@ -506,7 +511,6 @@ class Controller(object):
             Background and sample single beam spectrograph `DataBlock`'s.
         state : {"O", "P"}
             Indicator of the data being original or processed.
-            
 
         Returns
         -------
@@ -522,7 +526,7 @@ class Controller(object):
         SSC_B_S = (dataBlock_b.x, dataBlock_b.y, f"SSC_{state}_S_B")
         SSC_S_S = (dataBlock_s.x, dataBlock_s.y, f"SSC_{state}_S_S")
 
-        background_align = DataOperations().alignment(dataBlock_b, dataBlock_s)
+        background_align = DO().alignment(dataBlock_b, dataBlock_s)
         x = dataBlock_s.x
         y = dataBlock_s.y / background_align.y
 
