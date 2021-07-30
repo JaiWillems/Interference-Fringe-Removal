@@ -1,12 +1,12 @@
 # Interference-Fringe-Removal (IFR)
 
-The IFR project is a data handling user interface for the FAR-IR beamline of the Canadian Light Source Inc.. The platform uses an in house method to remove interference fringes from OPUS spectrograph data.
+The IFR project is a data handling user interface for the FAR-IR beamline of the Canadian Light Source Inc.. The platform uses an in house method to remove interference fringes from OPUS FTIR spectrograph data.
 
 ## User-Interface
 ![](IFR/figures/ui_display.png)
 The Interference-fringe-Removal functionality is accessible through the use of a user interface that initializes by running the `IFR/main.py` script.
 
-A typical work flow should follow the following pattern:
+A typical work flow should emulate the following pattern:
 1. Load sample and background data,
 2. Locate all fringes in the interferogram and select them by adding in their bounds to the "Fringe Localization" window,
 3. Using the "Fringe Select" window, check which fringes to remove,
@@ -16,7 +16,7 @@ A typical work flow should follow the following pattern:
 7. Save the sample and background spectrograph data as well as the removed fringe locations as `.dpt` files using the "Save Filtered Data" button.
 
 ## Data Requirements
-The program assumes that the inputted OPUS (`.0`) files have an interferogram data block that meet the requirements of being:
+The program assumes that the inputted OPUS (`.0`) files have an interferogram data block that meets the requirements of being:
 
 * Appropriatly Apodized,
 * Phase Corrected,
