@@ -1,9 +1,26 @@
 # Interference-Fringe-Removal (IFR)
 
-The IFR project is a data handling program for the FAR-IR beamline of the Canadian Light Source Inc.. The platform uses an in house method to remove interference fringes from OPUS spectrometry data.
+The IFR project is a data handling user interface for the FAR-IR beamline of the Canadian Light Source Inc.. The platform uses an in house method to remove interference fringes from OPUS spectrograph data.
 
-## Preliminary Model
-The initial model will invoke apodization functions, Mertz corrections, data truncation, and a sries of Fourier and inverse Fourier transforms to remove the interference fringes in a Terminal style UI application.
+## User-Interface
+![](IFR/figures/ui_display.png)
+The Interference-fringe-Removal functionality is accessible through the use of a user interface that initializes by running the `IFR/main.py` script.
 
-## Future Additions
-Long term goals of the project will be to create a guided user interface for fringe selection and additive/subtractive manipulation of interferograms and spectrographs. Additionally, innovative methods of fringe removal will be explored and incorporated.
+A typical work flow should follow the following pattern:
+1. Load sample and background data,
+2. Locate all fringes in the interferogram and select them by adding in their bounds to the "Fringe Localization" window,
+3. Using the "Fringe Select" window, check which fringes to remove,
+4. Select plotting preferences using the "Included Plots" and "Data Mode" check boxes and radio buttons,
+5. Update the spectrograph plot by pressing the "Update Plot" button.
+6. Iterate steps 3 - 5 until satisfied with the resulting data, and
+7. Save the sample and background spectrograph data as well as the removed fringe locations as `.dpt` files using the "Save Filtered Data" button.
+
+## Data Requirements
+The program assumes that the inputted OPUS (`.0`) files have an interferogram data block that meet the requirements of being:
+
+* Appropriatly Apodized,
+* Phase Corrected,
+* Single Sided, and
+* Mono-Directional.
+
+The inputted OPUS files must also contain a single beam spectrograph data block. Example OPUS data files can be seen in the `IFR/data` folder.
