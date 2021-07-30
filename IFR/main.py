@@ -489,8 +489,10 @@ class Controller(object):
         sample_data = self.sample_data.data["SSC"].copy()
 
         path = os.getcwd() + "/IFR/cache/fringe_spectrographs/"
+        self.fringes = {}
         for fringe in fringe_names:
-            fringe_one, fringe_two, _ = fringe.split(", ")
+            fringe_one, fringe_two, bounds = fringe.split(", ")
+            self.fringes[fringe] = bounds.split("-")
 
             _, y = self._cache_file_load(path, fringe_one)
             sample_data.y = sample_data.y - y
@@ -586,6 +588,9 @@ class Controller(object):
         sample_y = np.real(sample_y).reshape((-1, 1))
         dpt_data = np.concatenate((sample_x, sample_y), axis=1)
         np.savetxt(path[:-4] + "_SAMPLE.dpt", dpt_data, fmt="%4.7f", delimiter=",")
+
+        fringe_locations = np.array(list(self.fringes.values())).astype(float)
+        np.savetxt(path[:-4] + "_REMOVED_FRINGES.dpt", fringe_locations, fmt="%4.7f", delimiter=",")
 
 
 def program_exit():
