@@ -1,5 +1,7 @@
+"""User interface file for the Interference-Fringe-Removal program."""
 
 
+from definitions import FRINGE_CACHE_PATH, SIFG_CACHE_PATH, SSC_CACHE_PATH
 from functools import partial
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
@@ -238,9 +240,9 @@ class Controller(object):
         self.ui.SIFG_plot.set_xlabel("Steps")
         self.ui.SIFG_plot.set_ylabel("Intensity")
 
-        files = os.listdir(os.getcwd() + "/IFR/cache/SIFG_plot_data")
+        files = os.listdir(SIFG_CACHE_PATH)
         for file in files:
-            path, label = os.getcwd() + "/IFR/cache/SIFG_plot_data/", file[:-4]
+            path, label = SIFG_CACHE_PATH, file[:-4]
             x, y = self._cache_file_load(path, label)
             self.ui.SIFG_plot.plot(x, y, label=label)
 
@@ -276,7 +278,7 @@ class Controller(object):
         self.ui.SSC_plot.set_xlabel("Frequency")
         self.ui.SSC_plot.set_ylabel("Intensity")
 
-        files = os.listdir(os.getcwd() + "/IFR/cache/SSC_plot_data")
+        files = os.listdir(SSC_CACHE_PATH)
         for file in files:
             plot = False
 
@@ -300,12 +302,11 @@ class Controller(object):
                         plot = True
 
             if plot:
-                path, label = os.getcwd() + "/IFR/cache/SSC_plot_data/", file[:-4]
+                path, label = SSC_CACHE_PATH, file[:-4]
                 x, y = self._cache_file_load(path, label)
                 self.ui.SSC_plot.plot(x, y, label=label)
         
         if fringe_bool:
-            path = os.getcwd() + "/IFR/cache/fringe_spectrographs/"
 
             fringe_names = []
             for i in range(self.ui.scroll_layout.count()):
@@ -318,7 +319,7 @@ class Controller(object):
                         fringe_names.append(sample_fringe_label)
             
             for label in fringe_names:
-                x, y = self._cache_file_load(path, label)
+                x, y = self._cache_file_load(FRINGE_CACHE_PATH, label)
                 self.ui.SSC_plot.plot(x, y, label=label)
 
         self.ui.SSC_plot.legend()
@@ -415,7 +416,7 @@ class Controller(object):
         fringe_spectrograph = DO().fringe_spectrograph(sample_data, start, end)
         sample_x, sample_y = fringe_spectrograph.x, fringe_spectrograph.y
 
-        path = os.getcwd() + "/IFR/cache/fringe_spectrographs/"
+        path = FRINGE_CACHE_PATH
         self._cache_file_save(path, background_label, background_x, background_y)
         self._cache_file_save(path, sample_label, sample_x, sample_y)
 
@@ -427,7 +428,7 @@ class Controller(object):
         Parameters
         ----------
         path : str
-            Path to the cache file of interest. The path must end with a
+            Path to the cache file of interest. The path must not end with a
             forward slash.
 
         label : str
@@ -436,7 +437,7 @@ class Controller(object):
             Arrays of shape (n,) containing data to be saved.
         """
 
-        file_name = path + label
+        file_name = path + "/" + label
         x, y = x.reshape((-1, 1)), y.reshape((-1, 1))
         data = np.concatenate((x, y), axis=1)
         np.save(file_name, data)
@@ -447,7 +448,7 @@ class Controller(object):
         Parameters
         ----------
         path : str
-            Path to the cache file of interest. The path must end with a
+            Path to the cache file of interest. The path must not end with a
             forward slash.
         label : str
             Label identifier used for file naming.
@@ -458,7 +459,7 @@ class Controller(object):
             Arrays of shape (n,) containing data to be saved.
         """
 
-        file_name = path + label + ".npy"
+        file_name = path + "/" + label + ".npy"
         data = np.load(file_name)
         x, y = data[:, 0], data[:, 1]
 
@@ -488,7 +489,7 @@ class Controller(object):
         background_data = self.background_data.data["SSC"].copy()
         sample_data = self.sample_data.data["SSC"].copy()
 
-        path = os.getcwd() + "/IFR/cache/fringe_spectrographs/"
+        path = FRINGE_CACHE_PATH
         self.fringes = {}
         for fringe in fringe_names:
             fringe_one, fringe_two, bounds = fringe.split(", ")
@@ -550,21 +551,17 @@ class Controller(object):
             label in the following format: `(x, y, label)`.
         """
 
-        SIFG_path = os.getcwd() + "/IFR/cache/SIFG_plot_data/"
-        SSC_path = os.getcwd() + "/IFR/cache/SSC_plot_data/"
-        fringe_path = os.getcwd() + "/IFR/cache/fringe_spectrographs/"
-
         for arg in args:
             x, y, label = arg[0], arg[1], arg[2]
 
             type = label.split("_")[0]
 
             if type == "SSC":
-                path = SSC_path
+                path = SSC_CACHE_PATH
             elif type =="SIFG":
-                path = SIFG_path
+                path = SIFG_CACHE_PATH
             else:
-                path = fringe_path
+                path = FRINGE_CACHE_PATH
             
             self._cache_file_save(path, label, x, y)
     
@@ -574,16 +571,15 @@ class Controller(object):
         This method only works when a proccessed data file exists.
         """
 
-        SSC_path = os.getcwd() + "/IFR/cache/SSC_plot_data/"
         path, _ = QFileDialog.getSaveFileName(caption="Save File", filter="Data Point Table files (*.dpt)")
 
-        background_x, background_y = self._cache_file_load(SSC_path, "SSC_P_S_B")
+        background_x, background_y = self._cache_file_load(SSC_CACHE_PATH, "SSC_P_S_B")
         background_x = np.real(background_x).reshape((-1, 1))
         background_y = np.real(background_y).reshape((-1, 1))
         dpt_data = np.concatenate((background_x, background_y), axis=1)
         np.savetxt(path[:-4] + "_BACKGROUND.dpt", dpt_data, fmt="%4.7f", delimiter=",") 
 
-        sample_x, sample_y = self._cache_file_load(SSC_path, "SSC_P_S_S")
+        sample_x, sample_y = self._cache_file_load(SSC_CACHE_PATH, "SSC_P_S_S")
         sample_x = np.real(sample_x).reshape((-1, 1))
         sample_y = np.real(sample_y).reshape((-1, 1))
         dpt_data = np.concatenate((sample_x, sample_y), axis=1)
@@ -601,12 +597,10 @@ def program_exit():
 
     app.exec()
 
-    cwd = os.getcwd()
-
     paths = [
-        cwd + "/IFR/cache/SIFG_plot_data/",
-        cwd + "/IFR/cache/SSC_plot_data/",
-        cwd + "/IFR/cache/fringe_spectrographs/"
+        SIFG_CACHE_PATH + "/",
+        SSC_CACHE_PATH + "/",
+        FRINGE_CACHE_PATH + "/"
     ]
 
     for path in paths:

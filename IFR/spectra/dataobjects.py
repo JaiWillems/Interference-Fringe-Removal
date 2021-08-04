@@ -5,6 +5,7 @@ with the `OPUSLoader` function to handle OPUS file data.
 """
 
 
+import imghdr
 import opusFC
 
 
