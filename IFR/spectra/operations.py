@@ -268,7 +268,7 @@ class DataOperations(object):
 
         return dataBlock_new
     
-    def fringe_spectrograph(self, dataBlock: DataBlock, min: int, max: int) -> DataBlock:
+    def fringe_spectrograph(self, dataBlock: DataBlock, min: int, max: int, LFL: float) -> DataBlock:
         """Return the fringe spectrograph.
 
         This method takes a single, mono-directional interferogram with the
@@ -284,6 +284,8 @@ class DataOperations(object):
             The lower bounding x-value of the selected fringe.
         max : int
             The upper bounding x-value of the selected fringe.
+        LFL : float
+            Low frequency limit for the spectrograph data.
         
         Returns
         -------
@@ -306,7 +308,7 @@ class DataOperations(object):
 
         y_one = np.fft.fft(y_one)[:n_init//2]
         y_two = np.fft.fft(y_two)[:n_init//2]
-        x = np.fft.fftfreq(n_init, SSP / LWN)[:n_init//2]
+        x = np.fft.fftfreq(n_init, SSP / LWN)[:n_init//2] + LFL
 
         y_final = 3.5 * (y_one-np.min(y_one)) - 3.5 * (y_two-np.min(y_two))
 

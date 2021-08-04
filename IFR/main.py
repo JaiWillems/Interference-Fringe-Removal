@@ -341,22 +341,26 @@ class Controller(object):
         if sample:
             self.sample_data = OPUSLoader(path)
 
-            x1 = self.sample_data.data["SIFG"].x
-            y1 = self.sample_data.data["SIFG"].y
+            SIFG_data = self.sample_data.data["SIFG"]
+            SSC_data = self.sample_data.data["SSC"]
+
+            x1 = SIFG_data.x
+            y1 = SIFG_data.y
             label1 = "SIFG_O_S"
 
-            LWN, SSP = self.sample_data.data["SIFG"].params["LWN"], self.sample_data.data["SIFG"].params["SSP"] # 
+            LWN, SSP = SIFG_data.params["LWN"], SIFG_data.params["SSP"]
+            LFL = SSC_data.params["LFL"]
             n = y1.size
             y2 = np.append(y1, np.zeros(n,))
-            y2 = 3.5 * np.fft.fft(y2)[:n] # 
-            x2 = np.fft.fftfreq(2 * n, SSP / LWN)[:n] + 300 # 
+            y2 = 3.5 * np.fft.fft(y2)[:n] #
+            x2 = np.fft.fftfreq(2 * n, SSP / LWN)[:n] + LFL
             label2 = "SSC_O_S_S"
 
-            self.sample_data.data["SSC"].x = x2 # 
-            self.sample_data.data["SSC"].y = y2 # 
+            SSC_data.x = x2 # 
+            SSC_data.y = y2 # 
 
             try:
-                plot_params = self.prepare_plot_data(self.background_data.data["SSC"], self.sample_data.data["SSC"], state="O")
+                plot_params = self.prepare_plot_data(self.background_data.data["SSC"], SSC_data, state="O")
             except:
                 plot_params = [(x2, y2, label2)]
 
@@ -367,22 +371,26 @@ class Controller(object):
         else:
             self.background_data = OPUSLoader(path)
 
-            x1 = self.background_data.data["SIFG"].x
-            y1 = self.background_data.data["SIFG"].y
+            SIFG_data = self.background_data.data["SIFG"]
+            SSC_data = self.background_data.data["SSC"]
+
+            x1 = SIFG_data.x
+            y1 = SIFG_data.y
             label1 = "SIFG_O_B"
 
-            LWN, SSP = self.background_data.data["SIFG"].params["LWN"], self.background_data.data["SIFG"].params["SSP"] # 
+            LWN, SSP = SIFG_data.params["LWN"], SIFG_data.params["SSP"]
+            LFL = SSC_data.params["LFL"]
             n = y1.size
             y2 = np.append(y1, np.zeros(n,))
-            y2 = 3.5 * np.fft.fft(y2)[:n] # 
-            x2 = np.fft.fftfreq(2 * n, SSP / LWN)[:n] + 300 # 
+            y2 = 3.5 * np.fft.fft(y2)[:n] #
+            x2 = np.fft.fftfreq(2 * n, SSP / LWN)[:n] + LFL
             label2 = "SSC_O_S_B"
 
-            self.background_data.data["SSC"].x = x2 # 
-            self.background_data.data["SSC"].y = y2 # 
+            SSC_data.x = x2 # 
+            SSC_data.y = y2 # 
 
             try:
-                plot_params = self.prepare_plot_data(self.background_data.data["SSC"], self.sample_data.data["SSC"], state="O")
+                plot_params = self.prepare_plot_data(SSC_data, self.sample_data.data["SSC"], state="O")
             except:
                 plot_params = [(x2, y2, label2)]
 
@@ -406,14 +414,16 @@ class Controller(object):
         ind = np.where((start < background_data.x) & (background_data.x < end))
         background_label = "fringe_" + str(np.max(background_data.y[ind])) + "b"
 
-        fringe_spectrograph = DO().fringe_spectrograph(background_data, start, end)
+        LFL = self.background_data.data["SSC"].params["LFL"]
+        fringe_spectrograph = DO().fringe_spectrograph(background_data, start, end, LFL)
         background_x, background_y = fringe_spectrograph.x, fringe_spectrograph.y
 
         sample_data = self.sample_data.data["SIFG"]
         ind = np.where((start < sample_data.x) & (sample_data.x < end))
         sample_label = "fringe_" + str(np.max(sample_data.y[ind])) + "s"
 
-        fringe_spectrograph = DO().fringe_spectrograph(sample_data, start, end)
+        LFL = self.sample_data.data["SSC"].params["LFL"]
+        fringe_spectrograph = DO().fringe_spectrograph(sample_data, start, end, LFL)
         sample_x, sample_y = fringe_spectrograph.x, fringe_spectrograph.y
 
         path = FRINGE_CACHE_PATH
@@ -533,11 +543,11 @@ class Controller(object):
         x = dataBlock_s.x
         y = dataBlock_s.y / background_align.y
 
-        SSC_A = (x, y, f"SSC_{state}_A")
+        SSC_T = (x, y, f"SSC_{state}_T")
 
         y = np.exp(2 - y)
 
-        SSC_T = (x, y, f"SSC_{state}_T")
+        SSC_A = (x, y, f"SSC_{state}_A")
 
         return [SSC_B_S, SSC_S_S, SSC_A, SSC_T]
     
