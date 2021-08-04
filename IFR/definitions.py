@@ -4,12 +4,13 @@
 import os
 
 
-ROOT_DIR = os.getcwd()
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+print(ROOT_DIR)
 
-if ROOT_DIR.split("\\")[-1] == "dist":
-    ROOT_DIR = ROOT_DIR[:-5]
-else:
-    ROOT_DIR += "/IFR"
+# if ROOT_DIR.split("\\")[-1] == "dist":
+#     ROOT_DIR = ROOT_DIR[:-5]
+# else:
+#     ROOT_DIR += "/IFR"
 
 FRINGE_CACHE_PATH = os.path.join(ROOT_DIR, 'cache/fringe_spectrographs')
 SIFG_CACHE_PATH = os.path.join(ROOT_DIR, 'cache/SIFG_plot_data')
