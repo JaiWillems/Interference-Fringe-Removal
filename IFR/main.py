@@ -244,7 +244,7 @@ class Controller(object):
         for file in files:
             path, label = SIFG_CACHE_PATH, file[:-4]
             x, y = self._cache_file_load(path, label)
-            self.ui.SIFG_plot.plot(x, y, label=label)
+            self.ui.SIFG_plot.plot(x, y, label=self.get_plot_name(label))
 
         self.ui.SIFG_plot.legend()
         self.ui.SIFG_plot.grid()
@@ -267,7 +267,7 @@ class Controller(object):
         fringe_bool = self.ui.select_fringe_plot.isChecked()
 
         if self.ui.mode_S.isChecked():
-            type = "S"
+            type = "SB"
         elif self.ui.mode_A.isChecked():
             type = "A"
         else:
@@ -280,23 +280,25 @@ class Controller(object):
 
         files = os.listdir(SSC_CACHE_PATH)
         for file in files:
+            file_parts = file[:-4].split("_")
             plot = False
+            print(file_parts)
 
-            if original_bool and file[4] == "O":
-                if file[6] == type:
-                    if type == "S":
-                        if background_bool and file[8] == "B":
+            if original_bool and file_parts[1] == "O":
+                if file_parts[2] == type:
+                    if type == "SB":
+                        if background_bool and file_parts[3] == "B":
                             plot = True
-                        if sample_bool and file[8] == "S":
+                        if sample_bool and file_parts[3] == "S":
                             plot = True
                     else:
                         plot = True
-            elif processed_bool and file[4] == "P":
-                if file[6] == type:
-                    if type == "S":
-                        if background_bool and file[8] == "B":
+            elif processed_bool and file_parts[1] == "P":
+                if file_parts[2] == type:
+                    if type == "SB":
+                        if background_bool and file_parts[3] == "B":
                             plot = True
-                        if sample_bool and file[8] == "S":
+                        if sample_bool and file_parts[3] == "S":
                             plot = True
                     else:
                         plot = True
@@ -304,7 +306,7 @@ class Controller(object):
             if plot:
                 path, label = SSC_CACHE_PATH, file[:-4]
                 x, y = self._cache_file_load(path, label)
-                self.ui.SSC_plot.plot(x, y, label=label)
+                self.ui.SSC_plot.plot(x, y, label=self.get_plot_name(label))
         
         if fringe_bool:
 
@@ -325,6 +327,39 @@ class Controller(object):
         self.ui.SSC_plot.legend()
         self.ui.SSC_plot.grid()
         self.ui.SSC_canvas.draw()
+    
+    def get_plot_name(self, label):
+        """Return plot name from data label.
+
+        Parameters
+        ----------
+        label : str
+            String representing the data label
+        
+        Returns
+        -------
+        str
+            String representing the plot name.
+        """
+
+        define = {"SIFG": "SIFG",
+                  "SSC": "SSC",
+                  "O": "Original",
+                  "P": "Processed",
+                  "S": "Sample",
+                  "B": "Background",
+                  "SB": "Single Beam",
+                  "A": "Absorbance",
+                  "T": "Transmittance"}
+
+        label_parts = label.split("_")
+        name_parts = []
+
+        for part in label_parts:
+            name_parts.append(define[part])
+
+        return " ".join(name_parts)
+
 
     def upload_data(self, sample: bool) -> None:
         """Upload OPUS data.
@@ -354,7 +389,7 @@ class Controller(object):
             y2 = np.append(y1, np.zeros(n,))
             y2 = 3.5 * np.fft.fft(y2)[:n] #
             x2 = np.fft.fftfreq(2 * n, SSP / LWN)[:n] + LFL
-            label2 = "SSC_O_S_S"
+            label2 = "SSC_O_SB_S"
 
             SSC_data.x = x2 # 
             SSC_data.y = y2 # 
@@ -384,7 +419,7 @@ class Controller(object):
             y2 = np.append(y1, np.zeros(n,))
             y2 = 3.5 * np.fft.fft(y2)[:n] #
             x2 = np.fft.fftfreq(2 * n, SSP / LWN)[:n] + LFL
-            label2 = "SSC_O_S_B"
+            label2 = "SSC_O_SB_B"
 
             SSC_data.x = x2 # 
             SSC_data.y = y2 # 
@@ -536,8 +571,8 @@ class Controller(object):
         `save_plot_data` method using the `*` parameter preix.
         """
 
-        SSC_B_S = (dataBlock_b.x, dataBlock_b.y, f"SSC_{state}_S_B")
-        SSC_S_S = (dataBlock_s.x, dataBlock_s.y, f"SSC_{state}_S_S")
+        SSC_B_S = (dataBlock_b.x, dataBlock_b.y, f"SSC_{state}_SB_B")
+        SSC_S_S = (dataBlock_s.x, dataBlock_s.y, f"SSC_{state}_SB_S")
 
         background_align = DO().alignment(dataBlock_b, dataBlock_s)
         x = dataBlock_s.x
