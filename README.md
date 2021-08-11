@@ -1,4 +1,4 @@
-# Interference-Fringe-Removal (IFR)
+# <img width="50" height="50" src="/IFR/figures/IFR_logo.png"> Interference-Fringe-Removal (IFR)
 
 The IFR project is a data handling user interface for the FAR-IR beamline of the Canadian Light Source Inc.. The platform uses an in house method to remove interference fringes from OPUS FTIR spectrograph data.
 
