@@ -3,11 +3,13 @@
 
 from definitions import FRINGE_CACHE_PATH, ROOT_DIR, SIFG_CACHE_PATH, SSC_CACHE_PATH
 from functools import partial
+from matplotlib import cycler
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (
-    QApplication, QButtonGroup, QCheckBox, QDesktopWidget, QFileDialog, QGridLayout, QLabel,
+    QApplication, QButtonGroup, QCheckBox, QComboBox, QDesktopWidget, QFileDialog, QGridLayout, QLabel,
     QLineEdit, QMainWindow, QPushButton, QRadioButton, QScrollArea,
     QVBoxLayout, QWidget
 )
@@ -20,12 +22,20 @@ import os
 import sys
 
 
+plt.style.use('ggplot')
+plt.style.use('seaborn-dark')
+colors = cycler('color', ['#EE6666', '#3388BB', '#9988DD','#EECC55', '#88BB44', '#FFBBBB'])
+plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True, prop_cycle=colors)
+
+
 class UI(QMainWindow):
 
     def __init__(self) -> None:
         """Initialize main UI window."""
 
         super().__init__()
+
+        self.setWindowIcon(QIcon("figures/IFR_logo.png"))
 
         self.setWindowTitle("Interference-Fringe-Removal")
         self.setFixedWidth(1500)
@@ -71,6 +81,7 @@ class UI(QMainWindow):
         self.SIFG_plot.set_title("Interferogram")
         self.SIFG_plot.set_xlabel("Steps")
         self.SIFG_plot.set_ylabel("Intensity")
+        self.SIFG_figure.tight_layout()
         self.SIFG_plot.grid()
         self.SIFG_canvas.draw()
 
@@ -100,6 +111,7 @@ class UI(QMainWindow):
         self.SSC_plot.set_title("Spectrograph")
         self.SSC_plot.set_xlabel("Frequency")
         self.SSC_plot.set_ylabel("Intensity")
+        self.SSC_figure.tight_layout()
         self.SSC_plot.grid()
         self.SSC_canvas.draw()
 
@@ -117,6 +129,7 @@ class UI(QMainWindow):
         self.background_upload = QPushButton("Background File Upload")
         self.sample_upload = QPushButton("Sample File upload")
         self.save_data = QPushButton("Save Filtered Data")
+        self.zff_input = QComboBox()
         self.fringe_start = QLineEdit("0")
         self.fringe_end = QLineEdit("0")
         self.select_fringe = QPushButton("Select")
@@ -130,7 +143,7 @@ class UI(QMainWindow):
         self.select_fringe_plot = QCheckBox("Selected Fringes")
         self.update_plot = QPushButton("Update Plot")
 
-        # Widgit styling.
+        # Widget styling.
         self.background_upload.setStyleSheet("background-color: lightgrey")
         self.sample_upload.setStyleSheet("background-color: lightgrey")
         self.save_data.setStyleSheet("background-color: lightgrey")
@@ -150,12 +163,23 @@ class UI(QMainWindow):
         self.mode_button_group.addButton(self.mode_T)
         self.mode_S.setChecked(True)
 
+        # Configuring ZFF combo box options.
+        self.zff_input.addItem("--Zero Fill Factor--")
+        self.zff_input.addItem("0")
+        self.zff_input.addItem("1")
+        self.zff_input.addItem("2")
+        self.zff_input.addItem("4")
+        self.zff_input.addItem("8")
+        self.zff_input.addItem("12")
+        self.zff_input.addItem("16")
+
         # Widget organization.
         layout = QGridLayout()
-        layout.addWidget(QLabel("<b>Data Uploading</b>"), 1, 1, 1, 1)
+        layout.addWidget(QLabel("<b>File Handling</b>"), 1, 1, 1, 1)
         layout.addWidget(self.background_upload, 2, 1, 1, 1)
         layout.addWidget(self.sample_upload, 3, 1, 1, 1)
         layout.addWidget(self.save_data, 4, 1, 1, 1)
+        layout.addWidget(self.zff_input, 5, 1, 2, 1)
         layout.addWidget(QLabel("<b>Fringe Localization</b>"), 1, 2, 1, 2)
         layout.addWidget(QLabel("Start:"), 2, 2, 1, 1)
         layout.addWidget(self.fringe_start, 2, 3, 1, 1)
@@ -273,8 +297,17 @@ class Controller(object):
         else:
             type = "T"
 
+        x_lim = self.ui.SSC_plot.get_xlim()
+        y_lim = self.ui.SSC_plot.get_ylim()
+
         self.ui.SSC_plot.clear()
         self.ui.SSC_plot.set_title("Spectrograph")
+        
+        if self.prev_type == type:
+            self.ui.SSC_plot.set_xlim(x_lim)
+            self.ui.SSC_plot.set_ylim(y_lim)
+        self.prev_type = type
+
         self.ui.SSC_plot.set_xlabel("Frequency")
         self.ui.SSC_plot.set_ylabel("Intensity")
 
@@ -282,7 +315,6 @@ class Controller(object):
         for file in files:
             file_parts = file[:-4].split("_")
             plot = False
-            print(file_parts)
 
             if original_bool and file_parts[1] == "O":
                 if file_parts[2] == type:
@@ -387,19 +419,23 @@ class Controller(object):
             LFL = SSC_data.params["LFL"]
             n = y1.size
             y2 = np.append(y1, np.zeros(n,))
-            y2 = 3.5 * np.fft.fft(y2)[:n] #
+            y2 = np.fft.fft(y2)[:n]
             x2 = np.fft.fftfreq(2 * n, SSP / LWN)[:n] + LFL
             label2 = "SSC_O_SB_S"
 
-            SSC_data.x = x2 # 
-            SSC_data.y = y2 # 
+            SSC_data.x = x2
+            SSC_data.y = y2
 
             try:
                 plot_params = self.prepare_plot_data(self.background_data.data["SSC"], SSC_data, state="O")
             except:
                 plot_params = [(x2, y2, label2)]
+            
+            self.prev_type = "SB"
 
             self.save_plot_data((x1, y1, label1), *plot_params)
+            self.ui.SSC_plot.set_xlim(np.min(x2) - 0.1 * np.max(x2), 1.1 * np.max(x2))
+            self.ui.SSC_plot.set_ylim(np.min(y2) - 0.1 * np.max(y2), 1.1 * np.max(y2))
             self.SIFG_plot()
             self.SSC_plot()
 
@@ -417,20 +453,24 @@ class Controller(object):
             LFL = SSC_data.params["LFL"]
             n = y1.size
             y2 = np.append(y1, np.zeros(n,))
-            y2 = 3.5 * np.fft.fft(y2)[:n] #
+            y2 = np.fft.fft(y2)[:n]
             x2 = np.fft.fftfreq(2 * n, SSP / LWN)[:n] + LFL
             label2 = "SSC_O_SB_B"
 
-            SSC_data.x = x2 # 
-            SSC_data.y = y2 # 
+            SSC_data.x = x2
+            SSC_data.y = y2
 
             try:
                 plot_params = self.prepare_plot_data(SSC_data, self.sample_data.data["SSC"], state="O")
             except:
                 plot_params = [(x2, y2, label2)]
+            
+            self.prev_type = "SB"
 
             self.save_plot_data((x1, y1, label1), *plot_params)
             self.SIFG_plot()
+            self.ui.SSC_plot.set_xlim(np.min(x2) - 0.1 * np.max(x2), 1.1 * np.max(x2))
+            self.ui.SSC_plot.set_ylim(np.min(y2) - 0.1 * np.max(y2), 1.1 * np.max(y2))
             self.SSC_plot()
 
     def fringe_localization(self) -> None:
@@ -449,16 +489,14 @@ class Controller(object):
         ind = np.where((start < background_data.x) & (background_data.x < end))
         background_label = "fringe_" + str(np.max(background_data.y[ind])) + "b"
 
-        LFL = self.background_data.data["SSC"].params["LFL"]
-        fringe_spectrograph = DO().fringe_spectrograph(background_data, start, end, LFL)
+        fringe_spectrograph = DO().fringe_spectrograph(background_data, start, end)
         background_x, background_y = fringe_spectrograph.x, fringe_spectrograph.y
 
         sample_data = self.sample_data.data["SIFG"]
         ind = np.where((start < sample_data.x) & (sample_data.x < end))
         sample_label = "fringe_" + str(np.max(sample_data.y[ind])) + "s"
 
-        LFL = self.sample_data.data["SSC"].params["LFL"]
-        fringe_spectrograph = DO().fringe_spectrograph(sample_data, start, end, LFL)
+        fringe_spectrograph = DO().fringe_spectrograph(sample_data, start, end)
         sample_x, sample_y = fringe_spectrograph.x, fringe_spectrograph.y
 
         path = FRINGE_CACHE_PATH
@@ -538,7 +576,9 @@ class Controller(object):
         self.fringes = {}
         for fringe in fringe_names:
             fringe_one, fringe_two, bounds = fringe.split(", ")
-            self.fringes[fringe] = bounds.split("-")
+            start, end = bounds.split("-")
+            start, end = int(start), int(end)
+            self.fringes[fringe] = start, end
 
             _, y = self._cache_file_load(path, fringe_one)
             sample_data.y = sample_data.y - y
@@ -618,20 +658,53 @@ class Controller(object):
 
         path, _ = QFileDialog.getSaveFileName(caption="Save File", filter="Data Point Table files (*.dpt)")
 
-        background_x, background_y = self._cache_file_load(SSC_CACHE_PATH, "SSC_P_S_B")
-        background_x = np.real(background_x).reshape((-1, 1))
-        background_y = np.real(background_y).reshape((-1, 1))
-        dpt_data = np.concatenate((background_x, background_y), axis=1)
-        np.savetxt(path[:-4] + "_BACKGROUND.dpt", dpt_data, fmt="%4.7f", delimiter=",") 
+        zff = self.ui.zff_input.currentText()
+        try:
+            zff = int(zff)
+        except:
+            zff = 1
 
-        sample_x, sample_y = self._cache_file_load(SSC_CACHE_PATH, "SSC_P_S_S")
-        sample_x = np.real(sample_x).reshape((-1, 1))
-        sample_y = np.real(sample_y).reshape((-1, 1))
-        dpt_data = np.concatenate((sample_x, sample_y), axis=1)
-        np.savetxt(path[:-4] + "_SAMPLE.dpt", dpt_data, fmt="%4.7f", delimiter=",")
+        background_SIFG = DO().zero_fill(self.background_data.data["SIFG"], zff)
+        sample_SIFG = DO().zero_fill(self.sample_data.data["SIFG"], zff)
+
+        LWN_b = background_SIFG.params["LWN"]
+        SSP_b = background_SIFG.params["SSP"]
+        LFL_b = background_SIFG.params["LFL"]
+
+        LWN_s = sample_SIFG.params["LWN"]
+        SSP_s = sample_SIFG.params["SSP"]
+        LFL_s = sample_SIFG.params["LFL"]
+
+        for fringe in self.fringes:
+            
+            min, max = self.fringes[fringe]
+
+            background_fringe = DO().fringe_spectrograph(background_SIFG, min, max)
+            background_SIFG.y = background_SIFG.y - background_fringe.y
+
+            sample_fringe = DO().fringe_spectrograph(sample_SIFG, min, max)
+            sample_SIFG.y = sample_SIFG.y - sample_fringe.y
+        
+        n_b = background_SIFG.y.size
+        y_b = np.append(background_SIFG.y, np.zeros(n_b,))
+        y_b = np.fft.fft(y_b)[:n_b]
+        x_b = np.fft.fftfreq(2 * n_b, SSP_b / LWN_b)[:n_b] + LFL_b
+
+        dpt_data_b = np.concatenate((x_b.reshape((-1, 1)), y_b.reshape((-1, 1))), axis=1)
+        np.savetxt(path[:-4] + f"_ZFF{zff}_BACKGROUND.dpt", dpt_data_b, fmt="%4.7f", delimiter=",")
+
+        n_s = sample_SIFG.y.size
+        y_s = np.append(sample_SIFG.y, np.zeros(n_s,))
+        y_s = np.fft.fft(y_s)[:n_s]
+        x_s = np.fft.fftfreq(2 * n_s, SSP_s / LWN_s)[:n_s] + LFL_s
+
+        dpt_data_s = np.concatenate((x_s.reshape((-1, 1)), y_s.reshape((-1, 1))), axis=1)
+        np.savetxt(path[:-4] + f"_ZFF{zff}_SAMPLE.dpt", dpt_data_s, fmt="%4.7f", delimiter=",")
 
         fringe_locations = np.array(list(self.fringes.values())).astype(float)
         np.savetxt(path[:-4] + "_REMOVED_FRINGES.dpt", fringe_locations, fmt="%4.7f", delimiter=",")
+
+        print("Done Saving")
 
 
 def cache_setup(root_dir):
