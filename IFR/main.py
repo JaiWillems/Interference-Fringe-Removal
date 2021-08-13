@@ -1,7 +1,9 @@
 """User interface file for the Interference-Fringe-Removal program."""
 
 
-from definitions import FRINGE_CACHE_PATH, ROOT_DIR, SIFG_CACHE_PATH, SSC_CACHE_PATH
+from definitions import (
+    FRINGE_CACHE_PATH, ROOT_DIR, SIFG_CACHE_PATH, SSC_CACHE_PATH
+)
 from functools import partial
 from matplotlib import cycler
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -9,9 +11,9 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (
-    QApplication, QButtonGroup, QCheckBox, QComboBox, QDesktopWidget, QFileDialog, QGridLayout, QLabel,
-    QLineEdit, QMainWindow, QPushButton, QRadioButton, QScrollArea,
-    QVBoxLayout, QWidget
+    QApplication, QButtonGroup, QCheckBox, QComboBox, QDesktopWidget,
+    QFileDialog, QGridLayout, QLabel, QLineEdit, QMainWindow, QPushButton,
+    QRadioButton, QScrollArea, QVBoxLayout, QWidget
 )
 from spectra.dataobjects import DataBlock, OPUSLoader
 from spectra.operations import DataOperations as DO
@@ -24,7 +26,8 @@ import sys
 
 plt.style.use('ggplot')
 plt.style.use('seaborn-dark')
-colors = cycler('color', ['#EE6666', '#3388BB', '#9988DD','#EECC55', '#88BB44', '#FFBBBB'])
+color_list = ['#EE6666', '#3388BB', '#9988DD', '#EECC55', '#88BB44', '#FFBBBB']
+colors = cycler('color', color_list)
 plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True, prop_cycle=colors)
 
 
@@ -179,7 +182,7 @@ class UI(QMainWindow):
         layout.addWidget(self.background_upload, 2, 1, 1, 1)
         layout.addWidget(self.sample_upload, 3, 1, 1, 1)
         layout.addWidget(self.save_data, 4, 1, 1, 1)
-        layout.addWidget(self.zff_input, 5, 1, 2, 1)
+        layout.addWidget(self.zff_input, 5, 1, 1, 1)
         layout.addWidget(QLabel("<b>Fringe Localization</b>"), 1, 2, 1, 2)
         layout.addWidget(QLabel("Start:"), 2, 2, 1, 1)
         layout.addWidget(self.fringe_start, 2, 3, 1, 1)
@@ -188,16 +191,16 @@ class UI(QMainWindow):
         layout.addWidget(self.select_fringe, 4, 2, 1, 2)
         layout.addWidget(QLabel("<b>Fringe Select</b>"), 1, 4, 1, 1)
         layout.addWidget(self._scrollable_area(), 2, 4, 5, 1)
-        layout.addWidget(QLabel("<b>Data Mode</b>"), 1, 6, 1, 1)
-        layout.addWidget(self.mode_S, 2, 6, 1, 1)
-        layout.addWidget(self.mode_A, 3, 6, 1, 1)
-        layout.addWidget(self.mode_T, 4, 6, 1, 1)
         layout.addWidget(QLabel("<b>Included Plots</b>"), 1, 5, 1, 1)
         layout.addWidget(self.background_plot, 2, 5, 1, 1)
         layout.addWidget(self.sample_plot, 3, 5, 1, 1)
         layout.addWidget(self.original_plot, 4, 5, 1, 1)
         layout.addWidget(self.processed_plot, 5, 5, 1, 1)
         layout.addWidget(self.select_fringe_plot, 6, 5, 1, 1)
+        layout.addWidget(QLabel("<b>Data Mode</b>"), 1, 6, 1, 1)
+        layout.addWidget(self.mode_S, 2, 6, 1, 1)
+        layout.addWidget(self.mode_A, 3, 6, 1, 1)
+        layout.addWidget(self.mode_T, 4, 6, 1, 1)
         layout.addWidget(QLabel("<b>Update Data</b>"), 1, 7, 1, 1)
         layout.addWidget(self.update_plot, 2, 7, 1, 1)
 
@@ -302,7 +305,7 @@ class Controller(object):
 
         self.ui.SSC_plot.clear()
         self.ui.SSC_plot.set_title("Spectrograph")
-        
+
         if self.prev_type == type:
             self.ui.SSC_plot.set_xlim(x_lim)
             self.ui.SSC_plot.set_ylim(y_lim)
@@ -339,19 +342,20 @@ class Controller(object):
                 path, label = SSC_CACHE_PATH, file[:-4]
                 x, y = self._cache_file_load(path, label)
                 self.ui.SSC_plot.plot(x, y, label=self.get_plot_name(label))
-        
+
         if fringe_bool:
 
             fringe_names = []
             for i in range(self.ui.scroll_layout.count()):
                 widget = self.ui.scroll_layout.itemAt(i).widget()
                 if widget.isChecked():
-                    sample_fringe_label, background_fringe_label, _ = widget.text().split(", ")
+                    labels = widget.text()
+                    fringe_label_s, fringe_label_b, _ = labels.split(", ")
                     if background_bool:
-                        fringe_names.append(background_fringe_label)
+                        fringe_names.append(fringe_label_b)
                     if sample_bool:
-                        fringe_names.append(sample_fringe_label)
-            
+                        fringe_names.append(fringe_label_s)
+
             for label in fringe_names:
                 x, y = self._cache_file_load(FRINGE_CACHE_PATH, label)
                 self.ui.SSC_plot.plot(x, y, label=label)
@@ -359,7 +363,7 @@ class Controller(object):
         self.ui.SSC_plot.legend()
         self.ui.SSC_plot.grid()
         self.ui.SSC_canvas.draw()
-    
+
     def get_plot_name(self, label):
         """Return plot name from data label.
 
@@ -367,7 +371,7 @@ class Controller(object):
         ----------
         label : str
             String representing the data label
-        
+
         Returns
         -------
         str
@@ -392,7 +396,6 @@ class Controller(object):
 
         return " ".join(name_parts)
 
-
     def upload_data(self, sample: bool) -> None:
         """Upload OPUS data.
 
@@ -403,7 +406,8 @@ class Controller(object):
             sample data, else it will initialize the background data.
         """
 
-        path, _ = QFileDialog.getOpenFileName(caption="Open File", filter="OPUS files (*.0)")
+        caption, filter = "Open File", "OPUS files (*.0)"
+        path, _ = QFileDialog.getOpenFileName(caption=caption, filter=filter)
 
         if sample:
             self.sample_data = OPUSLoader(path)
@@ -417,25 +421,25 @@ class Controller(object):
 
             LWN, SSP = SIFG_data.params["LWN"], SIFG_data.params["SSP"]
             LFL = SSC_data.params["LFL"]
-            n = y1.size
-            y2 = np.append(y1, np.zeros(n,))
-            y2 = np.fft.fft(y2)[:n]
-            x2 = np.fft.fftfreq(2 * n, SSP / LWN)[:n] + LFL
+            x2, y2 = DO().FFT(y1, LWN, SSP, LFL)
             label2 = "SSC_O_SB_S"
 
             SSC_data.x = x2
             SSC_data.y = y2
 
             try:
-                plot_params = self.prepare_plot_data(self.background_data.data["SSC"], SSC_data, state="O")
+                plot_params = self.prepare_plot_data(
+                    self.background_data.data["SSC"], SSC_data, state="O")
             except:
                 plot_params = [(x2, y2, label2)]
-            
+
             self.prev_type = "SB"
 
             self.save_plot_data((x1, y1, label1), *plot_params)
-            self.ui.SSC_plot.set_xlim(np.min(x2) - 0.1 * np.max(x2), 1.1 * np.max(x2))
-            self.ui.SSC_plot.set_ylim(np.min(y2) - 0.1 * np.max(y2), 1.1 * np.max(y2))
+            x_min, x_max = np.min(x2) - 0.1 * np.max(x2), 1.1 * np.max(x2)
+            self.ui.SSC_plot.set_xlim(x_min, x_max)
+            y_min, y_max = np.min(y2) - 0.1 * np.max(y2), 1.1 * np.max(y2)
+            self.ui.SSC_plot.set_ylim(y_min, y_max)
             self.SIFG_plot()
             self.SSC_plot()
 
@@ -451,26 +455,26 @@ class Controller(object):
 
             LWN, SSP = SIFG_data.params["LWN"], SIFG_data.params["SSP"]
             LFL = SSC_data.params["LFL"]
-            n = y1.size
-            y2 = np.append(y1, np.zeros(n,))
-            y2 = np.fft.fft(y2)[:n]
-            x2 = np.fft.fftfreq(2 * n, SSP / LWN)[:n] + LFL
+            x2, y2 = DO().FFT(y1, LWN, SSP, LFL)
             label2 = "SSC_O_SB_B"
 
             SSC_data.x = x2
             SSC_data.y = y2
 
             try:
-                plot_params = self.prepare_plot_data(SSC_data, self.sample_data.data["SSC"], state="O")
+                plot_params = self.prepare_plot_data(
+                    SSC_data, self.sample_data.data["SSC"], state="O")
             except:
                 plot_params = [(x2, y2, label2)]
-            
+
             self.prev_type = "SB"
 
             self.save_plot_data((x1, y1, label1), *plot_params)
             self.SIFG_plot()
-            self.ui.SSC_plot.set_xlim(np.min(x2) - 0.1 * np.max(x2), 1.1 * np.max(x2))
-            self.ui.SSC_plot.set_ylim(np.min(y2) - 0.1 * np.max(y2), 1.1 * np.max(y2))
+            x_min, x_max = np.min(x2) - 0.1 * np.max(x2), 1.1 * np.max(x2)
+            self.ui.SSC_plot.set_xlim(x_min, x_max)
+            y_min, y_max = np.min(y2) - 0.1 * np.max(y2), 1.1 * np.max(y2)
+            self.ui.SSC_plot.set_ylim(y_min, y_max)
             self.SSC_plot()
 
     def fringe_localization(self) -> None:
@@ -503,7 +507,8 @@ class Controller(object):
         self._cache_file_save(path, background_label, background_x, background_y)
         self._cache_file_save(path, sample_label, sample_x, sample_y)
 
-        self._update_fringe_list(sample_label + ", " + background_label + f", {start}-{end}")
+        fringe_label = sample_label + ", " + background_label + f", {start}-{end}"
+        self._update_fringe_list(fringe_label)
 
     def _cache_file_save(self, path: str, label: str, x: np.array, y: np.array) -> None:
         """Save file to cache system as a `.npy` format.
@@ -585,12 +590,13 @@ class Controller(object):
 
             _, y = self._cache_file_load(path, fringe_two)
             background_data.y = background_data.y - y
-        
+
         plot_params = self.prepare_plot_data(background_data, sample_data, state="P")
         self.save_plot_data(*plot_params)
         self.SSC_plot()
-    
-    def prepare_plot_data(self, dataBlock_b: DataBlock, dataBlock_s: DataBlock, state: Literal["O", "P"]) -> List:
+
+    def prepare_plot_data(self, dataBlock_b: DataBlock, dataBlock_s: DataBlock,
+                          state: Literal["O", "P"]) -> List:
         """Return plot tuples of correct mode data.
 
         Parameters
@@ -604,7 +610,7 @@ class Controller(object):
         -------
         List
             List of plotting tuples.
-        
+
         Notes
         -----
         The returned list of plotting tuples can be unpacked into the
@@ -616,7 +622,7 @@ class Controller(object):
 
         background_align = DO().alignment(dataBlock_b, dataBlock_s)
         x = dataBlock_s.x
-        y = dataBlock_s.y / background_align.y
+        y = np.real(dataBlock_s.y) / np.real(background_align.y)
 
         SSC_T = (x, y, f"SSC_{state}_T")
 
@@ -625,15 +631,15 @@ class Controller(object):
         SSC_A = (x, y, f"SSC_{state}_A")
 
         return [SSC_B_S, SSC_S_S, SSC_A, SSC_T]
-    
+
     def save_plot_data(self, *args: Union[List, Tuple]) -> None:
         """Save plottable data to `.npy` binary files.
 
         Parameters
         ----------
         args : List, Tuple
-            A series of tuples containing the data x values, y values, and data
-            label in the following format: `(x, y, label)`.
+            A series of tuples containing the data x values, y values, and
+            data label in the following format: `(x, y, label)`.
         """
 
         for arg in args:
@@ -643,20 +649,21 @@ class Controller(object):
 
             if type == "SSC":
                 path = SSC_CACHE_PATH
-            elif type =="SIFG":
+            elif type == "SIFG":
                 path = SIFG_CACHE_PATH
             else:
                 path = FRINGE_CACHE_PATH
-            
+
             self._cache_file_save(path, label, x, y)
-    
+
     def save_dpt(self) -> None:
         """Save processed spectrograph as a DPT file.
 
         This method only works when a proccessed data file exists.
         """
 
-        path, _ = QFileDialog.getSaveFileName(caption="Save File", filter="Data Point Table files (*.dpt)")
+        caption, filter = "Save File", "Data Point Table files (*.dpt)"
+        path, _ = QFileDialog.getSaveFileName(caption=caption, filter=filter)
 
         zff = self.ui.zff_input.currentText()
         try:
@@ -664,54 +671,90 @@ class Controller(object):
         except:
             zff = 1
 
-        background_SIFG = DO().zero_fill(self.background_data.data["SIFG"], zff)
-        sample_SIFG = DO().zero_fill(self.sample_data.data["SIFG"], zff)
+        # Create and save background single beam spectrum.
+        dl = self.sample_data.data["SIFG"].y.size - self.background_data.data["SIFG"].y.size
+        background_SIFG = DO().zero_fill(self.background_data.data["SIFG"], zff, dl)
 
         LWN_b = background_SIFG.params["LWN"]
         SSP_b = background_SIFG.params["SSP"]
         LFL_b = background_SIFG.params["LFL"]
+
+        for fringe in self.fringes:
+
+            min, max = self.fringes[fringe]
+
+            background_fringe = DO().fringe_spectrograph(background_SIFG, min, max)
+            background_SIFG.y = background_SIFG.y - background_fringe.y
+
+        x_b, y_b = DO().FFT(background_SIFG.y, LWN_b, SSP_b, LFL_b)
+
+        del background_SIFG
+
+        x, y = x_b.reshape((-1, 1)), y_b.reshape((-1, 1))
+        dpt_data_b = np.concatenate((x, y), axis=1)
+        file_name = path[:-4] + f"_ZFF{zff}_SINGLE_BEAM_BACKGROUND.dpt"
+        np.savetxt(file_name, dpt_data_b, fmt="%4.7f", delimiter=",")
+
+        # Create and save sample single beam spectrum.
+        sample_SIFG = DO().zero_fill(self.sample_data.data["SIFG"], zff)
 
         LWN_s = sample_SIFG.params["LWN"]
         SSP_s = sample_SIFG.params["SSP"]
         LFL_s = sample_SIFG.params["LFL"]
 
         for fringe in self.fringes:
-            
-            min, max = self.fringes[fringe]
 
-            background_fringe = DO().fringe_spectrograph(background_SIFG, min, max)
-            background_SIFG.y = background_SIFG.y - background_fringe.y
+            min, max = self.fringes[fringe]
 
             sample_fringe = DO().fringe_spectrograph(sample_SIFG, min, max)
             sample_SIFG.y = sample_SIFG.y - sample_fringe.y
-        
-        n_b = background_SIFG.y.size
-        y_b = np.append(background_SIFG.y, np.zeros(n_b,))
-        y_b = np.fft.fft(y_b)[:n_b]
-        x_b = np.fft.fftfreq(2 * n_b, SSP_b / LWN_b)[:n_b] + LFL_b
 
-        dpt_data_b = np.concatenate((x_b.reshape((-1, 1)), y_b.reshape((-1, 1))), axis=1)
-        np.savetxt(path[:-4] + f"_ZFF{zff}_BACKGROUND.dpt", dpt_data_b, fmt="%4.7f", delimiter=",")
+        x_s, y_s = DO().FFT(sample_SIFG.y, LWN_s, SSP_s, LFL_s)
 
-        n_s = sample_SIFG.y.size
-        y_s = np.append(sample_SIFG.y, np.zeros(n_s,))
-        y_s = np.fft.fft(y_s)[:n_s]
-        x_s = np.fft.fftfreq(2 * n_s, SSP_s / LWN_s)[:n_s] + LFL_s
+        del sample_SIFG
 
-        dpt_data_s = np.concatenate((x_s.reshape((-1, 1)), y_s.reshape((-1, 1))), axis=1)
-        np.savetxt(path[:-4] + f"_ZFF{zff}_SAMPLE.dpt", dpt_data_s, fmt="%4.7f", delimiter=",")
+        x, y = x_s.reshape((-1, 1)), y_s.reshape((-1, 1))
+        dpt_data_s = np.concatenate((x, y), axis=1)
+        file_name = path[:-4] + f"_ZFF{zff}_SINGLE_BEAM_SAMPLE.dpt"
+        np.savetxt(file_name, dpt_data_s, fmt="%4.7f", delimiter=",")
 
+        # Create and save transmittance spectrum.
+        y_t = np.real(y_s) / np.real(y_b)
+        y = y_t.reshape((-1, 1))
+        dpt_data_t = np.concatenate((x, y), axis=1)
+        file_name = path[:-4] + f"_ZFF{zff}_TRANSMITTANCE.dpt"
+        np.savetxt(file_name, dpt_data_t, fmt="%4.7f", delimiter=",")
+
+        del y_b, y_s
+
+        # Create and save absorbance spectrum.
+        y_a = np.exp(2 - y_t)
+        y = y_a.reshape((-1, 1))
+        dpt_data_a = np.concatenate((x, y), axis=1)
+        file_name = path[:-4] + f"_ZFF{zff}_ABSORBANCE.dpt"
+        np.savetxt(file_name, dpt_data_a, fmt="%4.7f", delimiter=",")
+
+        # Save fringe locations.
         fringe_locations = np.array(list(self.fringes.values())).astype(float)
-        np.savetxt(path[:-4] + "_REMOVED_FRINGES.dpt", fringe_locations, fmt="%4.7f", delimiter=",")
+        file_name = path[:-4] + "_REMOVED_FRINGES.dpt"
+        np.savetxt(file_name, fringe_locations, fmt="%4.7f", delimiter=",")
 
-        print("Done Saving")
+    def disable_widgets(self):
+        for i in range(self.ui.ui_layout.count()):
+            widget = self.ui.ui_layout.itemAt(i).widget()
+            widget.setEnabled(False)
+
+    def enable_widgets(self):
+        for i in range(self.ui.ui_layout.count()):
+            widget = self.ui.ui_layout.itemAt(i).widget()
+            widget.setEnabled(True)
 
 
 def cache_setup(root_dir):
     """Setup the cache file system.
 
     This function initializes the programs file cache system of directories.
-    
+
     Parameters
     ----------
     root_dir : str
@@ -721,6 +764,7 @@ def cache_setup(root_dir):
     os.makedirs(root_dir + "/cache/fringe_spectrographs")
     os.makedirs(root_dir + "/cache/SIFG_plot_data")
     os.makedirs(root_dir + "/cache/SSC_plot_data")
+
 
 def program_exit():
     """Exit the UI program.

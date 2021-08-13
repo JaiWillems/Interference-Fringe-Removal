@@ -5,7 +5,6 @@ interferogram and spectrograph data held within `DataBlock` objects.
 """
 
 
-from scipy.interpolate import interp1d
 from spectra.dataobjects import DataBlock
 import numpy as np
 
@@ -30,7 +29,17 @@ class DataOperations(object):
         
         super().__init__()
     
-    def zero_fill(self, data, factor):
+    def FFT(self, y, LWN, SSP, LFL):
+        """
+        """
+
+        n = y.size
+        y_out = np.fft.hfft(y)[:n]
+        x_out = np.fft.fftfreq(2 * n)[:n] * 2 * LWN / SSP + LFL
+
+        return x_out, y_out
+    
+    def zero_fill(self, data: DataBlock, factor: int, dl: int=0):
         """Return zero filled array.
 
         Parameters
@@ -39,6 +48,9 @@ class DataOperations(object):
             `DataBlock` object containing the data to zero fill.
         factor : int
             Zero fill factor.
+        dl : int, optional
+            Pad the inputted `data` with `dl` zero values before expanding the
+            data by the zero fill factor.
         
         Returns
         -------
@@ -53,6 +65,11 @@ class DataOperations(object):
         """
 
         x_data, y_data = data.x, data.y
+
+        if dl:
+            curr_length = y_data.size
+            x_data = np.append(x_data, np.linspace(curr_length, curr_length + dl, dl))
+            y_data = np.append(y_data, np.zeros((dl,)))
 
         curr_length = y_data.size
         pad_length = (factor - 1) * curr_length
@@ -156,13 +173,11 @@ class DataOperations(object):
         x_two = dataBlock_two.x
         n_two = x_two.size
 
+        y_one = np.fft.ifft(y_one)
+        y_one = np.concatenate((y_one[:n_one//2], np.zeros((n_two - n_one,)), y_one[n_one//2:]))
+        y_one = np.fft.fft(y_one)
+
         x_one = x_two
-
-        x_one_dx = np.linspace(0, n_one, n_one)
-        x_one_idx = np.linspace(0, n_one, n_two)
-
-        interp = interp1d(x_one_dx, y_one)
-        y_one = interp(x_one_idx)
 
         dataBlock_one_new = DataBlock()
 
