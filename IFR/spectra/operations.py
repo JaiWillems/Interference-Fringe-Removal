@@ -123,7 +123,7 @@ class DataOperations(object):
 
         n_init = 2 * y.size
 
-        y_one, y_two = y[:max], y[:min]
+        y_one, y_two = y[:max + 1], y[:min]
         n_one, n_two = y_one.size, y_two.size
 
         y_one = np.append(y_one, np.zeros((n_init - n_one,)))

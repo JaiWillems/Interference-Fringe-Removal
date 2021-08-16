@@ -30,6 +30,7 @@ color_list = ['#EE6666', '#3388BB', '#9988DD', '#EECC55', '#88BB44', '#FFBBBB']
 colors = cycler('color', color_list)
 plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True, prop_cycle=colors)
 
+plt.rcParams['agg.path.chunksize'] = 10000
 
 class UI(QMainWindow):
 
@@ -145,6 +146,7 @@ class UI(QMainWindow):
         self.processed_plot = QCheckBox("Processed")
         self.select_fringe_plot = QCheckBox("Selected Fringes")
         self.update_plot = QPushButton("Update Plot")
+        self.PPRF = QComboBox()
 
         # Widget styling.
         self.background_upload.setStyleSheet("background-color: lightgrey")
@@ -159,7 +161,7 @@ class UI(QMainWindow):
         self.original_plot.setChecked(True)
         self.processed_plot.setChecked(True)
 
-        # Button grouping.
+        # Data mode button grouping.
         self.mode_button_group = QButtonGroup(self.mode_S)
         self.mode_button_group.addButton(self.mode_S)
         self.mode_button_group.addButton(self.mode_A)
@@ -175,6 +177,13 @@ class UI(QMainWindow):
         self.zff_input.addItem("8")
         self.zff_input.addItem("12")
         self.zff_input.addItem("16")
+
+        # Configuring PPRF combo box options.
+        self.PPRF.addItem("1")
+        self.PPRF.addItem("2")
+        self.PPRF.addItem("3")
+        self.PPRF.addItem("4")
+        self.PPRF.addItem("5")
 
         # Widget organization.
         layout = QGridLayout()
@@ -203,6 +212,9 @@ class UI(QMainWindow):
         layout.addWidget(self.mode_T, 4, 6, 1, 1)
         layout.addWidget(QLabel("<b>Update Data</b>"), 1, 7, 1, 1)
         layout.addWidget(self.update_plot, 2, 7, 1, 1)
+
+        layout.addWidget(QLabel("<b>Plot Point Reduction Factor</b>"), 5, 6, 1, 2)
+        layout.addWidget(self.PPRF, 6, 6, 1, 2) 
 
         baseWindow = QWidget()
         baseWindow.setLayout(layout)
@@ -309,6 +321,15 @@ class Controller(object):
         if self.prev_type == type:
             self.ui.SSC_plot.set_xlim(x_lim)
             self.ui.SSC_plot.set_ylim(y_lim)
+        else:
+            if type == "A":
+                y_lim = (0, 5.5)
+            elif type == "T":
+                y_lim = (-0.1, 1.1)
+
+            self.ui.SSC_plot.set_ylim(y_lim)
+
+
         self.prev_type = type
 
         self.ui.SSC_plot.set_xlabel("Frequency")
@@ -339,9 +360,10 @@ class Controller(object):
                         plot = True
 
             if plot:
+                PPRF = int(self.ui.PPRF.currentText())
                 path, label = SSC_CACHE_PATH, file[:-4]
                 x, y = self._cache_file_load(path, label)
-                self.ui.SSC_plot.plot(x, y, label=self.get_plot_name(label))
+                self.ui.SSC_plot.plot(x[::PPRF], y[::PPRF], label=self.get_plot_name(label))
 
         if fringe_bool:
 
@@ -408,6 +430,9 @@ class Controller(object):
 
         caption, filter = "Open File", "OPUS files (*.0)"
         path, _ = QFileDialog.getOpenFileName(caption=caption, filter=filter)
+
+        if path == "":
+            return None
 
         if sample:
             self.sample_data = OPUSLoader(path)
@@ -486,18 +511,25 @@ class Controller(object):
         to `.npy` binary files.
         """
 
+        try:
+            background_data = self.background_data.data["SIFG"]
+            sample_data = self.sample_data.data["SIFG"]
+        except:
+            return None
+
         start = int(self.ui.fringe_start.text())
         end = int(self.ui.fringe_end.text())
 
-        background_data = self.background_data.data["SIFG"]
-        ind = np.where((start < background_data.x) & (background_data.x < end))
+        if (end - start <= 0) or (end < 0) or (start < 0):
+            return None
+
+        ind = np.where((start <= background_data.x) & (background_data.x <= end))
         background_label = "fringe_" + str(np.max(background_data.y[ind])) + "b"
 
         fringe_spectrograph = DO().fringe_spectrograph(background_data, start, end)
         background_x, background_y = fringe_spectrograph.x, fringe_spectrograph.y
 
-        sample_data = self.sample_data.data["SIFG"]
-        ind = np.where((start < sample_data.x) & (sample_data.x < end))
+        ind = np.where((start <= sample_data.x) & (sample_data.x <= end))
         sample_label = "fringe_" + str(np.max(sample_data.y[ind])) + "s"
 
         fringe_spectrograph = DO().fringe_spectrograph(sample_data, start, end)
@@ -568,14 +600,18 @@ class Controller(object):
     def update_plot(self) -> None:
         """Plot the processed spectrograph."""
 
+        try:
+            background_data = self.background_data.data["SSC"].copy()
+            sample_data = self.sample_data.data["SSC"].copy()
+        except:
+            self.ui.mode_S.setChecked(True)
+            return None
+
         fringe_names = []
         for i in range(self.ui.scroll_layout.count()):
             widget = self.ui.scroll_layout.itemAt(i).widget()
             if widget.isChecked():
                 fringe_names.append(widget.text())
-
-        background_data = self.background_data.data["SSC"].copy()
-        sample_data = self.sample_data.data["SSC"].copy()
 
         path = FRINGE_CACHE_PATH
         self.fringes = {}
@@ -664,6 +700,9 @@ class Controller(object):
 
         caption, filter = "Save File", "Data Point Table files (*.dpt)"
         path, _ = QFileDialog.getSaveFileName(caption=caption, filter=filter)
+
+        if path == "":
+            return None
 
         zff = self.ui.zff_input.currentText()
         try:
