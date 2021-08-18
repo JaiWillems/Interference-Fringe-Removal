@@ -15,7 +15,7 @@ class OPUSData(object):
     Attributes
     ----------
     data : Dict
-        Dictionary of `DataBlock` objects where the keys are the blocks `type`
+        Dictionary of `DataBlock` objects where the key is the block's `type`
         attribute.
     """
 
@@ -37,15 +37,16 @@ class DataBlock(object):
     deriv_type : {"NONE", "1DER", "2DER", "NDER"}
         Datablock derivative type.
     params : dict
-        Dictionary of data, sample, and instrument parameters.
+        Dictionary of data parameters, sample parameters, and instrument
+        parameters.
     x : np.array
-        Array of shape (n,) containing spectru x coordinate data.
+        Array of shape (n,) containing x coordinate spectrum data.
     y : np.array
-        Array of shape (n,) containing spectru y coordinate data.
+        Array of shape (n,) containing spectru y coordinate spectrum data.
     minY : float
         Minimum y value.
     maxY : float
-        maximum y value.
+        Maximum y value.
     """
 
     def __init__(self) -> None:

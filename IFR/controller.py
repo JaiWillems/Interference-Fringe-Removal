@@ -12,17 +12,65 @@ import os
 
 
 class Controller(object):
+    """Add functionality to the user interface widgets.
+
+    The `Controller` class connects widgets of the user interface to control
+    sequences to add widget functionality.
+
+    Parameters
+    ----------
+    ui : UI
+        The user interface for the `Controller` class to control.
+    
+    Attributes
+    ----------
+    ui : UI
+        The user interface for the `Controller` class to control.
+    fringes : dict
+        Dictionary of fringes where the keys are the fringe names and the
+        values are tuples containing the start and end x-values associated
+        with the fringe.
+    
+    Methods
+    -------
+    connect_signals()
+        Connect widgets to control sequences.
+    SIFG_plot()
+        Plot interferogram data.
+    SSC_plot()
+        Plot spectrum data.
+    get_plot_name(label)
+        Return plot name from data label.
+    upload_data(sample)
+        Upload OPUS data.
+    fringe_localization()
+        Calculate the fringe spectrum component.
+    _cache_file_save(path, label, x, y)
+        Save file to cache system as a `.npy` format.
+    _cache_file_load(path, label)
+        Load file from cache system.
+    _update_fringe_list(label)
+        Update the fringe selection scrollable area.
+    update_plot()
+        Plot the processed spectrogra.
+    prepare_plot_data(dataBlock_b, dataBlock_s, state)
+        Return plot tuples of correct mode data.
+    save_plot_data(*args)
+        Save plottable data to `.npy` binary files.
+    save_dpt()
+        Save processed spectra data as a DPT file.
+    """
 
     def __init__(self, ui):
-        """Initialize `Controller` class."""
+        """Initialize attributes."""
 
         self.ui = ui
         self.fringes = {}
 
-        self._connect_signals()
+        self.connect_signals()
 
-    def _connect_signals(self) -> None:
-        """Add widget functionality."""
+    def connect_signals(self) -> None:
+        """Connect widgets to control sequences."""
 
         self.ui.background_upload.clicked.connect(partial(self.upload_data, False))
         self.ui.sample_upload.clicked.connect(partial(self.upload_data, True))
@@ -31,14 +79,7 @@ class Controller(object):
         self.ui.save_data.clicked.connect(self.save_dpt)
 
     def SIFG_plot(self) -> None:
-        """Plot interferogram data.
-
-        Parameters
-        ----------
-        args : tuple
-            Tuple of length three with format `(x, y, label)` where `x` is the
-            x data, `y` is the y-data, and `label` is the plot label.
-        """
+        """Plot interferogram data."""
 
         self.ui.SIFG_plot.clear()
         self.ui.SIFG_plot.set_title("Interferogram")
@@ -55,8 +96,8 @@ class Controller(object):
         self.ui.SIFG_plot.grid()
         self.ui.SIFG_canvas.draw()
 
-    def SSC_plot(self):
-        """Plot spectrograph data.
+    def SSC_plot(self) -> None:
+        """Plot spectrum data.
 
         Parameters
         ----------
@@ -95,7 +136,6 @@ class Controller(object):
 
             self.ui.SSC_plot.set_ylim(y_lim)
 
-
         self.prev_type = type
 
         self.ui.SSC_plot.set_xlabel("Frequency")
@@ -132,7 +172,6 @@ class Controller(object):
                 self.ui.SSC_plot.plot(x[::PPRF], y[::PPRF], label=self.get_plot_name(label))
 
         if fringe_bool:
-
             fringe_names = []
             for i in range(self.ui.scroll_layout.count()):
                 widget = self.ui.scroll_layout.itemAt(i).widget()
@@ -152,7 +191,7 @@ class Controller(object):
         self.ui.SSC_plot.grid()
         self.ui.SSC_canvas.draw()
 
-    def get_plot_name(self, label):
+    def get_plot_name(self, label: str) -> str:
         """Return plot name from data label.
 
         Parameters
@@ -269,7 +308,7 @@ class Controller(object):
             self.SSC_plot()
 
     def fringe_localization(self) -> None:
-        """Calculate fringe spectrograph component.
+        """Calculate the fringe spectrum component.
 
         This method uses the user defined fringe bounds to localize the fringe
         and calculate the spectrograph component due to the fringe.
@@ -316,7 +355,6 @@ class Controller(object):
         path : str
             Path to the cache file of interest. The path must not end with a
             forward slash.
-
         label : str
             Label identifier used for file naming.
         x, y : np.array
@@ -328,7 +366,7 @@ class Controller(object):
         data = np.concatenate((x, y), axis=1)
         np.save(file_name, data)
 
-    def _cache_file_load(self, path: str, label: str) -> Tuple:
+    def _cache_file_load(self, path: str, label: str) -> Tuple[np.array, np.array]:
         """Load file from cache system.
 
         Parameters
@@ -364,7 +402,7 @@ class Controller(object):
         layout.insertWidget(layout.count() - 1, QCheckBox(label))
 
     def update_plot(self) -> None:
-        """Plot the processed spectrograph."""
+        """Plot the processed spectra."""
 
         try:
             background_data = self.background_data.data["SSC"].copy()
@@ -404,7 +442,7 @@ class Controller(object):
         Parameters
         ----------
         dataBlock_b, dataBlock_s : DataBlock
-            Background and sample single beam spectrograph `DataBlock`'s.
+            Background and sample single beam spectrum `DataBlock`'s.
         state : {"O", "P"}
             Indicator of the data being original or processed.
 
@@ -416,7 +454,7 @@ class Controller(object):
         Notes
         -----
         The returned list of plotting tuples can be unpacked into the
-        `save_plot_data` method using the `*` parameter preix.
+        `save_plot_data` method using the `*` parameter prefix.
         """
 
         SSC_B_S = (dataBlock_b.x, dataBlock_b.y, f"SSC_{state}_SB_B")
@@ -434,12 +472,12 @@ class Controller(object):
 
         return [SSC_B_S, SSC_S_S, SSC_A, SSC_T]
 
-    def save_plot_data(self, *args: Union[List, Tuple]) -> None:
+    def save_plot_data(self, *args: Tuple) -> None:
         """Save plottable data to `.npy` binary files.
 
         Parameters
         ----------
-        args : List, Tuple
+        args : Tuple
             A series of tuples containing the data x values, y values, and
             data label in the following format: `(x, y, label)`.
         """
@@ -459,7 +497,7 @@ class Controller(object):
             self._cache_file_save(path, label, x, y)
 
     def save_dpt(self) -> None:
-        """Save processed spectrograph as a DPT file.
+        """Save processed spectra data as a DPT file.
 
         This method only works when a proccessed data file exists.
         """
@@ -484,14 +522,15 @@ class Controller(object):
         SSP_b = background_SIFG.params["SSP"]
         LFL_b = background_SIFG.params["LFL"]
 
+        x_b, y_b = DO().FFT(background_SIFG.y, LWN_b, SSP_b, LFL_b)
+        x_b, y_b = np.real(x_b), np.real(y_b)
+
         for fringe in self.fringes:
 
             min, max = self.fringes[fringe]
 
             background_fringe = DO().fringe_spectrograph(background_SIFG, min, max)
-            background_SIFG.y = background_SIFG.y - background_fringe.y
-
-        x_b, y_b = DO().FFT(background_SIFG.y, LWN_b, SSP_b, LFL_b)
+            y_b = y_b - np.real(background_fringe.y)
 
         del background_SIFG
 
@@ -507,14 +546,15 @@ class Controller(object):
         SSP_s = sample_SIFG.params["SSP"]
         LFL_s = sample_SIFG.params["LFL"]
 
+        x_s, y_s = DO().FFT(sample_SIFG.y, LWN_s, SSP_s, LFL_s)
+        x_s, y_s = np.real(x_s), np.real(y_s)
+
         for fringe in self.fringes:
 
             min, max = self.fringes[fringe]
 
             sample_fringe = DO().fringe_spectrograph(sample_SIFG, min, max)
-            sample_SIFG.y = sample_SIFG.y - sample_fringe.y
-
-        x_s, y_s = DO().FFT(sample_SIFG.y, LWN_s, SSP_s, LFL_s)
+            y_s = y_s - np.real(sample_fringe.y)
 
         del sample_SIFG
 

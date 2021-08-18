@@ -1,16 +1,14 @@
 """User interface file for the Interference-Fringe-Removal program."""
 
 
-from definitions import (
-    FRINGE_CACHE_PATH, ROOT_DIR, SIFG_CACHE_PATH, SSC_CACHE_PATH
-)
 from controller import Controller
+from definitions import FRINGE_CACHE_PATH, ROOT_DIR, SIFG_CACHE_PATH, SSC_CACHE_PATH
 from matplotlib import cycler
 from PyQt5.QtWidgets import QApplication
+from ui import UI
 import matplotlib.pyplot as plt
 import os
 import sys
-from ui import UI
 
 
 # Style plots.
@@ -21,19 +19,20 @@ plt.rc('axes', facecolor='#E6E6E6', edgecolor='none', axisbelow=True,
        prop_cycle=colors)
 
 
-# Increase chunksize parameter.
+# Increase plotting chunksize parameter.
 plt.rcParams['agg.path.chunksize'] = 10000
 
 
-def cache_setup(root_dir):
+def cache_setup(root_dir: str) -> None:
     """Setup the cache file system.
 
-    This function initializes the programs file cache system of directories.
+    This function initializes the directories of the program's file cache
+    system.
 
     Parameters
     ----------
     root_dir : str
-        string representing the programs root directory.
+        String representing the program's root directory.
     """
 
     os.makedirs(root_dir + "/cache/fringe_spectrographs")
@@ -41,7 +40,7 @@ def cache_setup(root_dir):
     os.makedirs(root_dir + "/cache/SSC_plot_data")
 
 
-def program_exit():
+def program_exit() -> None:
     """Exit the UI program.
 
     This function closes the UI after deleting all program cache files and the

@@ -14,6 +14,87 @@ import matplotlib.pyplot as plt
 
 
 class UI(QMainWindow):
+    """Define the programs user interface.
+
+    Attributes
+    ----------
+    SIFG_figure : plt.figure
+        Matplotlib figure for the interferogram plot.
+    SIFG_canvas : FigureCanvas
+        Plot widget for PyQt5 integration.
+    SIFG_toolbar : NavigationToolbar
+        Toolbar widget for PyQt5 integration.
+    SIFG_window : QWidget
+        Interferogram plot window.
+    SIFG_plot : plt.subplots
+        Interferogram data plot.
+    SSC_figure : plt.figure
+        Matplotlib figure for the spectra plot.
+    SSC_canvas : FigureCanvas
+        Plot widget for PyQt5 integration.
+    SSC_toolbar : NavigationToolbar
+        Toolbar widget for PyQt5 integration.
+    SSC_window : QWidget
+        Spectra plot window.
+    SSC_plot : plt.subplots
+        Spectra data plot.
+    background_upload : QPushButton
+        Button for background file upload.
+    sample_upload : QPushButton
+        Button for sample file upload.
+    save_data : QPushButton
+        Button to save processed spectra data.
+    zff_input : QComboBox
+        Combo box to select the zero fill factor value.
+    fringe_start : QLineEdit
+        Line edit to input the fringe start x-value.
+    fringe_end : QLineEdit
+        Line edit to input the fringe end x-value.
+    select_fringe : QPushButton
+        Button to select the fringe defined by the start and end x-values.
+    mode_button_group : QButtonGroup
+        Button group for the plot mode radio buttons.
+    mode_S : QRadioButton
+        Radio button to select the spectra plot to show single beam spectra.
+    mode_A : QRadioButton
+        Radio button to select the spectra plot to show absorbance spectra.
+    mode_T : QRadioButton
+        Radio button to select the spectra plot to show transmittance spectra.
+    background_plot : QCheckBox
+        Check box to select the spectra plot to show background spectra where
+        applicable.
+    sample_plot : QCheckBox
+        Check box to select the spectra plot to show sample spectra where
+        applicable.
+    original_plot : QCheckBox
+        Check box to select the spectra plot to show original spectra.
+    processed_plot : QCheckBox
+        Check box to select the spectra plot to show processed spectra.
+    select_fringe_plot : QCheckBox
+        Check box to select the spectra plot to show the spectra of selected
+        fringes.
+    update_plot : QPushButton
+        Button to update the spectra plot.
+    PPRF : QComboBox
+        COmbo box to select the plot point reduction factor.
+    scroll_window : QScrollArea
+        Scrollable area for the fringe selection interface.
+    scroll_layout : QVboxLayout
+        Layout for the `scroll_window`.
+    scroll_widget : QWidget
+        Scrollable widget for PyQt5 integration.
+    
+    Methods
+    -------
+    _SIFG_display()
+        Return the SIFG display widget.
+    _SSC_display()
+        Return the SSC display widget.
+    _base_display()
+        Return the base controls widget.
+    _scrollabe_area()
+        Return a scrollable "Fringe Select" window.
+    """
 
     def __init__(self) -> None:
         """Initialize main UI window."""
