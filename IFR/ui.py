@@ -101,7 +101,7 @@ class UI(QMainWindow):
 
         super().__init__()
 
-        self.setWindowIcon(QIcon("figures/IFR_logo.png"))
+        self.setWindowIcon(QIcon("IFR/figures/IFR_logo.png"))
 
         self.setWindowTitle("Interference-Fringe-Removal")
         self.setFixedWidth(1500)
