@@ -1,4 +1,8 @@
-"""User interface file for the Interference-Fringe-Removal program."""
+"""User interface file for the Interference-Fringe-Removal program.
+
+This module contains the `UI` class which generates the programs user
+interface.
+"""
 
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -16,28 +20,21 @@ import matplotlib.pyplot as plt
 class UI(QMainWindow):
     """Define the programs user interface.
 
+    The `UI` class defines the user interface for the
+    Interference-Fringe-Removal program.
+
     Attributes
     ----------
-    SIFG_figure : plt.figure
-        Matplotlib figure for the interferogram plot.
-    SIFG_canvas : FigureCanvas
-        Plot widget for PyQt5 integration.
-    SIFG_toolbar : NavigationToolbar
-        Toolbar widget for PyQt5 integration.
-    SIFG_window : QWidget
-        Interferogram plot window.
-    SIFG_plot : plt.subplots
-        Interferogram data plot.
-    SSC_figure : plt.figure
-        Matplotlib figure for the spectra plot.
-    SSC_canvas : FigureCanvas
-        Plot widget for PyQt5 integration.
-    SSC_toolbar : NavigationToolbar
-        Toolbar widget for PyQt5 integration.
-    SSC_window : QWidget
-        Spectra plot window.
-    SSC_plot : plt.subplots
-        Spectra data plot.
+    SIFG_figure, SSC_figure : plt.figure
+        Matplotlib figure for the interferogram and spectrum plots.
+    SIFG_canvas, SSC_canvas : FigureCanvas
+        Plot widget's for PyQt5 integration.
+    SIFG_toolbar, SSC_toolbar : NavigationToolbar
+        Toolbar widget's for PyQt5 integration.
+    SIFG_window, SSC_window : QWidget
+        Interferogram and spectrum plot windows.
+    SIFG_plot, SSC_plot : plt.subplots
+        Interferogram and spectrum data plots.
     background_upload : QPushButton
         Button for background file upload.
     sample_upload : QPushButton
@@ -54,12 +51,9 @@ class UI(QMainWindow):
         Button to select the fringe defined by the start and end x-values.
     mode_button_group : QButtonGroup
         Button group for the plot mode radio buttons.
-    mode_S : QRadioButton
-        Radio button to select the spectra plot to show single beam spectra.
-    mode_A : QRadioButton
-        Radio button to select the spectra plot to show absorbance spectra.
-    mode_T : QRadioButton
-        Radio button to select the spectra plot to show transmittance spectra.
+    mode_S, mode_A, mode_T : QRadioButton
+        Radio button's to select the spectra plot to show either single beam,
+        absorbance, or transmittance spectra.
     background_plot : QCheckBox
         Check box to select the spectra plot to show background spectra where
         applicable.
@@ -83,39 +77,51 @@ class UI(QMainWindow):
         Layout for the `scroll_window`.
     scroll_widget : QWidget
         Scrollable widget for PyQt5 integration.
-    
+
     Methods
     -------
-    _SIFG_display()
+    SIFG_display()
         Return the SIFG display widget.
-    _SSC_display()
+    SSC_display()
         Return the SSC display widget.
-    _base_display()
+    base_display()
         Return the base controls widget.
     _scrollabe_area()
         Return a scrollable "Fringe Select" window.
     """
 
     def __init__(self) -> None:
-        """Initialize main UI window."""
+        """Initialize main UI window.
+
+        Notes
+        -----
+        This method initializes the main user interface display by setting the
+        window icon, configuring window dimentions, setting the main window
+        layout, and centering the user interface in the screens center on
+        start up.
+        """
 
         super().__init__()
 
+        # Set window icon.
         self.setWindowIcon(QIcon("IFR/figures/IFR_logo.png"))
 
+        # Configure window settings.
         self.setWindowTitle("Interference-Fringe-Removal")
         self.setFixedWidth(1500)
         self.setFixedHeight(750)
 
+        # Set window layout.
         self.layout = QGridLayout()
-        self.layout.addWidget(self._SIFG_display(), 1, 1, 1, 1)
-        self.layout.addWidget(self._SSC_display(), 1, 2, 1, 1)
-        self.layout.addWidget(self._base_display(), 2, 1, 1, 3)
+        self.layout.addWidget(self.SIFG_display(), 1, 1, 1, 1)
+        self.layout.addWidget(self.SSC_display(), 1, 2, 1, 1)
+        self.layout.addWidget(self.base_display(), 2, 1, 1, 3)
 
         self.centralWidget = QWidget(self)
         self.setCentralWidget(self.centralWidget)
         self.centralWidget.setLayout(self.layout)
 
+        # Center interface in the screens center.
         qr = self.frameGeometry()
         cp = QDesktopWidget().availableGeometry().center()
         qr.moveCenter(cp)
@@ -123,8 +129,11 @@ class UI(QMainWindow):
 
         self.show()
 
-    def _SIFG_display(self) -> QWidget:
+    def SIFG_display(self) -> QWidget:
         """Return the SIFG display widget.
+
+        This method organizes the interferogram plot display by creating the
+        plot and plot control widgets.
 
         Returns
         -------
@@ -132,10 +141,12 @@ class UI(QMainWindow):
             Widget containing the SIFG `matplotlib` canvas.
         """
 
+        # Get window widgets.
         self.SIFG_figure = plt.figure()
         self.SIFG_canvas = FigureCanvas(self.SIFG_figure)
         self.SIFG_toolbar = NavigationToolbar(self.SIFG_canvas, self)
 
+        # Set window layout.
         layout = QVBoxLayout()
         layout.addWidget(self.SIFG_toolbar)
         layout.addWidget(self.SIFG_canvas)
@@ -143,6 +154,7 @@ class UI(QMainWindow):
         self.SIFG_window = QWidget()
         self.SIFG_window.setLayout(layout)
 
+        # Configure plot.
         self.SIFG_plot = self.SIFG_figure.add_subplot(111)
         self.SIFG_plot.set_title("Interferogram")
         self.SIFG_plot.set_xlabel("Steps")
@@ -153,8 +165,11 @@ class UI(QMainWindow):
 
         return self.SIFG_window
 
-    def _SSC_display(self) -> QWidget:
+    def SSC_display(self) -> QWidget:
         """Return the SSC display widget.
+
+        This method organizes the spectrum plot display by creating the plot
+        and plot control widgets.
 
         Returns
         -------
@@ -162,10 +177,12 @@ class UI(QMainWindow):
             Widget containing the SSC `matplotlib` canvas.
         """
 
+        # Get window widgets.
         self.SSC_figure = plt.figure()
         self.SSC_canvas = FigureCanvas(self.SSC_figure)
         self.SSC_toolbar = NavigationToolbar(self.SSC_canvas, self)
 
+        # set window layout.
         layout = QVBoxLayout()
         layout.addWidget(self.SSC_toolbar)
         layout.addWidget(self.SSC_canvas)
@@ -173,6 +190,7 @@ class UI(QMainWindow):
         self.SSC_window = QWidget()
         self.SSC_window.setLayout(layout)
 
+        # Configure plot.
         self.SSC_plot = self.SSC_figure.add_subplot(111)
         self.SSC_plot.set_title("Spectrograph")
         self.SSC_plot.set_xlabel("Frequency")
@@ -183,8 +201,11 @@ class UI(QMainWindow):
 
         return self.SSC_window
 
-    def _base_display(self) -> QWidget:
+    def base_display(self) -> QWidget:
         """Return the base controls widget.
+
+        This method organizes the base control console by configuring the file
+        handling, fringe localization, fringe selection, and plotting controls.
 
         Returns
         -------
@@ -233,7 +254,6 @@ class UI(QMainWindow):
 
         # Configuring ZFF combo box options.
         self.zff_input.addItem("--Zero Fill Factor--")
-        self.zff_input.addItem("0")
         self.zff_input.addItem("1")
         self.zff_input.addItem("2")
         self.zff_input.addItem("4")
@@ -244,9 +264,9 @@ class UI(QMainWindow):
         # Configuring PPRF combo box options.
         self.PPRF.addItem("1")
         self.PPRF.addItem("2")
-        self.PPRF.addItem("3")
         self.PPRF.addItem("4")
-        self.PPRF.addItem("5")
+        self.PPRF.addItem("8")
+        self.PPRF.addItem("16")
 
         # Widget organization.
         layout = QGridLayout()
@@ -262,7 +282,7 @@ class UI(QMainWindow):
         layout.addWidget(self.fringe_end, 3, 3, 1, 1)
         layout.addWidget(self.select_fringe, 4, 2, 1, 2)
         layout.addWidget(QLabel("<b>Fringe Select</b>"), 1, 4, 1, 1)
-        layout.addWidget(self._scrollable_area(), 2, 4, 5, 1)
+        layout.addWidget(self.scrollable_area(), 2, 4, 5, 1)
         layout.addWidget(QLabel("<b>Included Plots</b>"), 1, 5, 1, 1)
         layout.addWidget(self.background_plot, 2, 5, 1, 1)
         layout.addWidget(self.sample_plot, 3, 5, 1, 1)
@@ -283,8 +303,11 @@ class UI(QMainWindow):
 
         return baseWindow
 
-    def _scrollable_area(self) -> QScrollArea:
+    def scrollable_area(self) -> QScrollArea:
         """Return a scrollable "Fringe Select" window.
+
+        This method creates the scrollable window used to display localized
+        fringes that can be selected for fringe removal.
 
         Returns
         -------
@@ -292,13 +315,14 @@ class UI(QMainWindow):
             Scrollable "Fringe Select" window.
         """
 
+        # Define scrollable area and it configuration.
         self.scroll_window = QScrollArea()
         self.scroll_window.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.scroll_window.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.scroll_window.setWidgetResizable(True)
 
+        # Set window layout.
         self.scroll_widget = QWidget()
-
         self.scroll_layout = QVBoxLayout()
         self.scroll_widget.setLayout(self.scroll_layout)
 
