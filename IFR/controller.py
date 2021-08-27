@@ -609,7 +609,7 @@ class Controller(object):
             if a_bool or state == "O":
 
                 # Calculate the absorbance spectrum.
-                y = np.exp(2 - y)
+                y = -np.log10(y)
 
                 # Get absorbance plotting tuple.
                 SSC_A = (x, y, f"SSC_{state}_A")
@@ -765,7 +765,7 @@ class Controller(object):
         del y_b, y_s
 
         # Calculate the absorbance spectrum.
-        y_a = np.exp(2 - y_t)
+        y_a = -np.log10(y_t)
 
         # Save the absorbance spectrum.
         y = y_a.reshape((-1, 1))
